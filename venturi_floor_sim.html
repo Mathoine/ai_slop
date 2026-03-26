@@ -1,0 +1,1974 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Venturi Ground-Effect Floor Simulator</title>
+<style>
+  :root {
+    --bg: #0a0d11;
+    --panel: #12171d;
+    --panel-2: #171d25;
+    --panel-3: #1d2430;
+    --line: #2a3441;
+    --line-soft: #222b36;
+    --text: #e5edf6;
+    --muted: #9fb0c2;
+    --accent: #59d0ff;
+    --accent-2: #8affbf;
+    --warn: #ffb34d;
+    --bad: #ff6c6c;
+    --good: #8affbf;
+    --shadow: 0 18px 40px rgba(0, 0, 0, 0.35);
+    --radius: 14px;
+    --radius-sm: 10px;
+    --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+    --sans: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  }
+
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0;
+    font-family: var(--sans);
+    background:
+      radial-gradient(circle at 20% 0%, rgba(89, 208, 255, 0.08), transparent 30%),
+      radial-gradient(circle at 100% 0%, rgba(138, 255, 191, 0.05), transparent 25%),
+      linear-gradient(180deg, #0a0d11 0%, #0d1117 100%);
+    color: var(--text);
+    min-height: 100vh;
+  }
+
+  .app {
+    display: grid;
+    grid-template-columns: 360px minmax(0, 1fr);
+    gap: 18px;
+    padding: 18px;
+    min-height: 100vh;
+  }
+
+  .panel {
+    background: linear-gradient(180deg, rgba(24, 30, 38, 0.98), rgba(17, 22, 29, 0.98));
+    border: 1px solid rgba(255,255,255,0.05);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    backdrop-filter: blur(10px);
+  }
+
+  .sidebar {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    min-height: 0;
+  }
+
+  .sidebar-inner {
+    padding: 16px 16px 18px;
+    overflow: auto;
+    min-height: 0;
+  }
+
+  .title-wrap {
+    padding: 16px 16px 12px;
+    border-bottom: 1px solid var(--line-soft);
+    background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0));
+  }
+
+  h1 {
+    font-size: 18px;
+    line-height: 1.2;
+    margin: 0 0 8px;
+    letter-spacing: 0.03em;
+    font-weight: 700;
+  }
+
+  .subtitle {
+    margin: 0;
+    color: var(--muted);
+    font-size: 12px;
+    line-height: 1.45;
+  }
+
+  .main {
+    display: grid;
+    grid-template-rows: auto auto minmax(0, 1fr);
+    gap: 18px;
+    min-width: 0;
+  }
+
+  .toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    padding: 14px;
+    align-items: center;
+  }
+
+  .toolbar .spacer { flex: 1 1 auto; }
+
+  select, button, input[type="number"], input[type="text"] {
+    background: var(--panel-2);
+    color: var(--text);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 9px 12px;
+    font: inherit;
+    outline: none;
+    transition: border-color 0.16s ease, box-shadow 0.16s ease, transform 0.16s ease;
+  }
+
+  button {
+    cursor: pointer;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+  }
+
+  button:hover, select:hover, input[type="number"]:hover, input[type="text"]:hover {
+    border-color: #3a4858;
+  }
+
+  button:focus-visible, select:focus-visible, input:focus-visible {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(89, 208, 255, 0.18);
+  }
+
+  button.primary {
+    background: linear-gradient(180deg, rgba(89, 208, 255, 0.22), rgba(89, 208, 255, 0.1));
+    border-color: rgba(89, 208, 255, 0.45);
+  }
+
+  button.ghost {
+    background: rgba(255,255,255,0.02);
+  }
+
+  .metrics {
+    display: grid;
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    gap: 12px;
+  }
+
+  .metric {
+    padding: 14px 14px 12px;
+    background: linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.015));
+    border: 1px solid rgba(255,255,255,0.05);
+    border-radius: 14px;
+    min-width: 0;
+  }
+
+  .metric-label {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--muted);
+    margin-bottom: 8px;
+  }
+
+  .metric-value {
+    font-size: 24px;
+    font-weight: 700;
+    line-height: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .metric-sub {
+    margin-top: 8px;
+    font-size: 11px;
+    color: var(--muted);
+  }
+
+  .content-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1.35fr) minmax(320px, 0.75fr);
+    gap: 18px;
+    min-height: 0;
+  }
+
+  .stack {
+    display: grid;
+    gap: 18px;
+    min-height: 0;
+  }
+
+  .card {
+    padding: 14px;
+    min-width: 0;
+  }
+
+  .card-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 10px;
+    margin-bottom: 10px;
+  }
+
+  .card-title {
+    font-size: 13px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--muted);
+    font-weight: 700;
+  }
+
+  .card-note {
+    font-size: 11px;
+    color: var(--muted);
+    max-width: 360px;
+    line-height: 1.45;
+    text-align: right;
+  }
+
+  .canvas-wrap {
+    position: relative;
+    border-radius: 12px;
+    overflow: hidden;
+    border: 1px solid rgba(255,255,255,0.05);
+    background: linear-gradient(180deg, rgba(8, 12, 18, 1), rgba(13, 17, 23, 1));
+  }
+
+  canvas {
+    display: block;
+    width: 100%;
+  }
+
+  #profileCanvas { height: 360px; }
+  .plot-canvas { height: 190px; }
+  #sweepCanvas { height: 220px; }
+
+  .legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px 16px;
+    margin-top: 10px;
+    font-size: 11px;
+    color: var(--muted);
+  }
+
+  .legend-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .swatch {
+    width: 18px;
+    height: 3px;
+    border-radius: 999px;
+    background: var(--accent);
+  }
+
+  .explain {
+    font-size: 13px;
+    color: #d7e0ea;
+    line-height: 1.6;
+    display: grid;
+    gap: 10px;
+  }
+
+  .explain-item {
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.04);
+    border-radius: 12px;
+    padding: 10px 12px;
+  }
+
+  .status-line {
+    font-size: 12px;
+    font-family: var(--mono);
+    color: var(--muted);
+    padding: 10px 12px 0;
+  }
+
+  details.group {
+    border: 1px solid rgba(255,255,255,0.05);
+    border-radius: 12px;
+    padding: 0;
+    overflow: hidden;
+    background: rgba(255,255,255,0.02);
+    margin-bottom: 12px;
+  }
+
+  details.group[open] {
+    background: rgba(255,255,255,0.025);
+  }
+
+  details.group > summary {
+    list-style: none;
+    cursor: pointer;
+    padding: 12px 14px;
+    user-select: none;
+    font-size: 12px;
+    color: var(--text);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-weight: 700;
+    border-bottom: 1px solid transparent;
+  }
+
+  details.group[open] > summary {
+    border-bottom-color: rgba(255,255,255,0.05);
+  }
+
+  details.group > summary::-webkit-details-marker { display: none; }
+  .group-body { padding: 12px 12px 2px; }
+
+  .control {
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+    padding: 0 0 12px;
+    margin-bottom: 12px;
+  }
+
+  .control:last-child {
+    border-bottom: 0;
+    margin-bottom: 0;
+    padding-bottom: 10px;
+  }
+
+  .control-top {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 12px;
+    align-items: center;
+    margin-bottom: 8px;
+  }
+
+  .control-label {
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+  }
+
+  .control-note {
+    color: var(--muted);
+    font-size: 11px;
+    line-height: 1.4;
+    margin-top: 4px;
+  }
+
+  .control-inputs {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 92px;
+    gap: 10px;
+    align-items: center;
+  }
+
+  input[type="range"] {
+    width: 100%;
+    appearance: none;
+    height: 6px;
+    border-radius: 999px;
+    background: linear-gradient(90deg, rgba(89, 208, 255, 0.6), rgba(138, 255, 191, 0.55));
+    outline: none;
+  }
+
+  input[type="range"]::-webkit-slider-thumb {
+    appearance: none;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: #f7fbff;
+    box-shadow: 0 0 0 3px rgba(89,208,255,0.25);
+    cursor: pointer;
+  }
+
+  input[type="range"]::-moz-range-thumb {
+    width: 16px;
+    height: 16px;
+    border: 0;
+    border-radius: 50%;
+    background: #f7fbff;
+    box-shadow: 0 0 0 3px rgba(89,208,255,0.25);
+    cursor: pointer;
+  }
+
+  .mini-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+  }
+
+  .mini-stat {
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.05);
+    border-radius: 12px;
+    padding: 10px 12px;
+  }
+
+  .mini-stat .k { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: 0.07em; }
+  .mini-stat .v { margin-top: 4px; font-family: var(--mono); font-size: 15px; }
+
+  .footer-note {
+    margin-top: 14px;
+    font-size: 11px;
+    color: var(--muted);
+    line-height: 1.55;
+  }
+
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 10px;
+    border-radius: 999px;
+    font-size: 11px;
+    border: 1px solid rgba(255,255,255,0.06);
+    background: rgba(255,255,255,0.03);
+  }
+
+  .status-good { color: var(--good); }
+  .status-warn { color: var(--warn); }
+  .status-bad { color: var(--bad); }
+
+  .hidden-file { display: none; }
+
+  @media (max-width: 1280px) {
+    .metrics { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .content-grid { grid-template-columns: 1fr; }
+  }
+
+  @media (max-width: 1080px) {
+    .app { grid-template-columns: 1fr; }
+    .sidebar { min-height: auto; }
+    .sidebar-inner { max-height: 55vh; }
+  }
+</style>
+<script type="text/javascript" nonce="571d8f2323c54ab99fed696eae8" src="//local.adguard.org?ts=1774561391150&amp;type=content-script&amp;dmn=chatgpt.com&amp;url=https%3A%2F%2Fchatgpt.com%2Fbackend-api%2Festuary%2Fcontent%3Fid%3Dfile_000000008ab47246abc1f4d43ef19484%26ts%3D492934%26p%3Dfs%26cid%3D1%26sig%3Db086dea9fcc5fb0f5162a46eb74384886517af45efaef87dacd07a106ce8672c%26v%3D0&amp;app=com.apple.Safari&amp;css=2&amp;js=1&amp;rel=1&amp;rji=1&amp;sbe=1&amp;stealth=1&amp;st-wrtc&amp;st-push&amp;st-loc&amp;st-java&amp;st-dnt"></script><script type="text/javascript" nonce="571d8f2323c54ab99fed696eae8" src="//local.adguard.org?ts=1774561391150&amp;name=AdGuard%20Extra&amp;type=user-script"></script></head>
+<body>
+<div class="app">
+  <aside class="panel sidebar">
+    <div class="title-wrap">
+      <h1>Venturi Ground-Effect Floor Simulator</h1>
+      <p class="subtitle">
+        Station-based underfloor model with continuity, Bernoulli-style suction, leakage, boundary-layer blockage,
+        diffuser recovery, and empirical separation penalties. The goal is believable aerodynamic trend analysis, not CFD.
+      </p>
+    </div>
+    <div class="sidebar-inner">
+      <div id="controlGroups"></div>
+      <div class="footer-note">
+        The tunnel profile heights are treated as nominal geometry at the preset reference platform. Front/rear ride height,
+        heave, yaw, and roll then perturb the effective tunnel gap in operation. Diffuser angle is used both as a display input
+        and as an aggressiveness bias in the separation model.
+      </div>
+    </div>
+  </aside>
+
+  <main class="main">
+    <section class="panel toolbar">
+      <label>
+        <span style="font-size:12px;color:var(--muted);margin-right:8px;">Preset</span>
+        <select id="presetSelect" aria-label="Preset selection"></select>
+      </label>
+      <button id="applyPresetBtn" class="primary">Apply preset</button>
+      <button id="resetBtn" class="ghost">Reset current preset</button>
+      <button id="compareBtn" class="ghost">Store compare state</button>
+      <button id="clearCompareBtn" class="ghost">Clear compare</button>
+      <button id="exportBtn" class="ghost">Export JSON</button>
+      <button id="importBtn" class="ghost">Import JSON</button>
+      <input id="importFile" class="hidden-file" type="file" accept="application/json" />
+      <div class="spacer"></div>
+      <span id="overallStatus" class="badge">Ready</span>
+    </section>
+
+    <section class="metrics" id="metrics"></section>
+
+    <section class="content-grid">
+      <div class="stack">
+        <section class="panel card">
+          <div class="card-head">
+            <div>
+              <div class="card-title">Tunnel profile, pressure field, and live flow state</div>
+              <div class="status-line" id="profileStatus">Awaiting first solve.</div>
+            </div>
+            <div class="card-note">
+              Streamline speed follows local tunnel velocity ratio. The floor fill tracks pressure coefficient: deeper blue means stronger suction.
+            </div>
+          </div>
+          <div class="canvas-wrap">
+            <canvas id="profileCanvas"></canvas>
+          </div>
+          <div class="legend">
+            <span class="legend-item"><span class="swatch" style="background:#67d7ff"></span>current pressure coefficient</span>
+            <span class="legend-item"><span class="swatch" style="background:#8affbf"></span>current tunnel roof</span>
+            <span class="legend-item"><span class="swatch" style="background:#ffb34d"></span>separation onset</span>
+            <span class="legend-item"><span class="swatch" style="background:#7c8796"></span>compare overlay</span>
+          </div>
+        </section>
+
+        <section class="panel card">
+          <div class="card-head">
+            <div class="card-title">Pressure coefficient along floor</div>
+            <div class="card-note">Current state with optional stored compare overlay.</div>
+          </div>
+          <div class="canvas-wrap"><canvas id="cpCanvas" class="plot-canvas"></canvas></div>
+        </section>
+
+        <section class="panel card">
+          <div class="card-head">
+            <div class="card-title">Local tunnel height / effective flow height</div>
+            <div class="card-note">Raw geometric gap and boundary-layer-reduced flow height.</div>
+          </div>
+          <div class="canvas-wrap"><canvas id="heightCanvas" class="plot-canvas"></canvas></div>
+        </section>
+
+        <section class="panel card">
+          <div class="card-head">
+            <div class="card-title">Local downforce contribution</div>
+            <div class="card-note">Strip load distribution; front/rear balance and center of pressure are derived from this curve.</div>
+          </div>
+          <div class="canvas-wrap"><canvas id="loadCanvas" class="plot-canvas"></canvas></div>
+        </section>
+      </div>
+
+      <div class="stack">
+        <section class="panel card">
+          <div class="card-head">
+            <div class="card-title">Secondary engineering outputs</div>
+            <div class="card-note">Finite-difference sensitivities are computed around the current operating point.</div>
+          </div>
+          <div class="mini-grid" id="secondaryStats"></div>
+        </section>
+
+        <section class="panel card">
+          <div class="card-head">
+            <div class="card-title">Sweep view</div>
+            <div class="card-note">Fast parametric check of how the current floor behaves through a small operating envelope.</div>
+          </div>
+          <div class="canvas-wrap"><canvas id="sweepCanvas"></canvas></div>
+        </section>
+
+        <section class="panel card">
+          <div class="card-head">
+            <div class="card-title">Interpretation panel</div>
+            <div class="card-note">Explains why the floor is gaining or losing performance.</div>
+          </div>
+          <div class="explain" id="explain"></div>
+        </section>
+      </div>
+    </section>
+  </main>
+</div>
+
+<script>
+(() => {
+  'use strict';
+
+  const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+  const lerp = (a, b, t) => a + (b - a) * t;
+  const invLerp = (a, b, v) => (v - a) / ((b - a) || 1e-9);
+  const smoothstep = (a, b, v) => {
+    const t = clamp((v - a) / ((b - a) || 1e-9), 0, 1);
+    return t * t * (3 - 2 * t);
+  };
+  const degToRad = (d) => d * Math.PI / 180;
+  const radToDeg = (r) => r * 180 / Math.PI;
+  const easeInOut = (t) => t * t * (3 - 2 * t);
+  const deepClone = (v) => JSON.parse(JSON.stringify(v));
+  const fmt = (v, digits = 1) => Number.isFinite(v) ? v.toFixed(digits) : '—';
+  const fmtSigned = (v, digits = 1) => Number.isFinite(v) ? `${v >= 0 ? '+' : ''}${v.toFixed(digits)}` : '—';
+
+  function hermite(y0, m0, y1, m1, t) {
+    const t2 = t * t;
+    const t3 = t2 * t;
+    return (2 * t3 - 3 * t2 + 1) * y0 + (t3 - 2 * t2 + t) * m0 + (-2 * t3 + 3 * t2) * y1 + (t3 - t2) * m1;
+  }
+
+  function colorForCp(cp, alpha = 1) {
+    const minCp = -3.3;
+    const maxCp = 0.6;
+    const t = clamp(invLerp(minCp, maxCp, cp), 0, 1);
+    const hue = lerp(205, 20, t);
+    const sat = lerp(92, 84, t);
+    const light = lerp(56, 58, t);
+    return `hsla(${hue}, ${sat}%, ${light}%, ${alpha})`;
+  }
+
+  function colorForVelocity(uRel, alpha = 1) {
+    const t = clamp(invLerp(0.7, 2.8, uRel), 0, 1);
+    const hue = lerp(160, 210, t);
+    const light = lerp(68, 52, t);
+    return `hsla(${hue}, 90%, ${light}%, ${alpha})`;
+  }
+
+  function resolveCanvas(canvas) {
+    const ratio = window.devicePixelRatio || 1;
+    const rect = canvas.getBoundingClientRect();
+    const width = Math.max(1, Math.round(rect.width * ratio));
+    const height = Math.max(1, Math.round(rect.height * ratio));
+    if (canvas.width !== width || canvas.height !== height) {
+      canvas.width = width;
+      canvas.height = height;
+    }
+    const ctx = canvas.getContext('2d');
+    ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+    return { ctx, width: rect.width, height: rect.height, ratio };
+  }
+
+  const PARAM_DEFS = [
+    {
+      title: 'Operating condition', open: true, items: [
+        { key: 'speedKph', label: 'Vehicle speed', min: 40, max: 420, step: 1, unit: 'km/h', note: 'Freestream speed used for dynamic pressure and underfloor Reynolds scaling.' },
+        { key: 'airDensity', label: 'Air density', min: 0.95, max: 1.35, step: 0.005, unit: 'kg/m³', note: 'Direct multiplier on dynamic pressure and therefore on aerodynamic force.' },
+        { key: 'frontRideHeight', label: 'Front ride height', min: 8, max: 95, step: 0.5, unit: 'mm', note: 'Front reference platform height above the ground plane.' },
+        { key: 'rearRideHeight', label: 'Rear ride height', min: 12, max: 130, step: 0.5, unit: 'mm', note: 'Rear reference platform height above the ground plane. Together with front ride height this defines rake.' },
+        { key: 'heaveOffset', label: 'Heave offset', min: -20, max: 20, step: 0.25, unit: 'mm', note: 'Applies a uniform vertical shift to the whole floor, useful for ride-height sweeps.' },
+        { key: 'yawAngle', label: 'Yaw angle', min: -10, max: 10, step: 0.1, unit: 'deg', note: 'Reduces ideal sealing and introduces left/right underfloor asymmetry.' },
+        { key: 'rollAngle', label: 'Roll angle', min: -5, max: 5, step: 0.05, unit: 'deg', note: 'Tilts the floor laterally, loading one side and unloading the other.' }
+      ]
+    },
+    {
+      title: 'Tunnel and diffuser geometry', open: true, items: [
+        { key: 'floorLength', label: 'Floor length', min: 1.3, max: 3.6, step: 0.01, unit: 'm', note: 'Longitudinal extent of the modeled underfloor tunnel from inlet to exit.' },
+        { key: 'throatPosition', label: 'Throat position', min: 0.18, max: 2.8, step: 0.01, unit: 'm', note: 'Longitudinal station of minimum tunnel height before diffuser recovery.' },
+        { key: 'inletHeight', label: 'Nominal inlet height', min: 18, max: 95, step: 0.5, unit: 'mm', note: 'Nominal centerline gap entering the tunnel at the preset reference platform.' },
+        { key: 'throatHeight', label: 'Nominal throat height', min: 6, max: 60, step: 0.25, unit: 'mm', note: 'Nominal centerline gap at the venturi throat before ride-height perturbations.' },
+        { key: 'diffuserLength', label: 'Diffuser length', min: 0.18, max: 1.55, step: 0.01, unit: 'm', note: 'Recovery length available after the throat / flat floor section.' },
+        { key: 'diffuserExitHeight', label: 'Nominal diffuser exit height', min: 18, max: 180, step: 0.5, unit: 'mm', note: 'Nominal tunnel gap at the diffuser exit. Expansion ratio strongly affects stability.' },
+        { key: 'diffuserAngle', label: 'Diffuser angle bias', min: 1, max: 18, step: 0.1, unit: 'deg', note: 'Used as an explicit aggressiveness input in the separation model. If it exceeds the geometric slope, the model treats the diffuser as more stall-prone.' },
+        { key: 'tunnelWidth', label: 'Tunnel width', min: 0.12, max: 0.55, step: 0.005, unit: 'm', note: 'Width of one tunnel channel used for local area and planform load integration.' },
+        { key: 'numTunnels', label: 'Number of tunnels', min: 1, max: 4, step: 1, unit: '', note: 'Total number of venturi channels contributing to the modeled floor width.' }
+      ]
+    },
+    {
+      title: 'Flow quality and sensitivities', open: true, items: [
+        { key: 'sealingQuality', label: 'Sealing quality', min: 0, max: 1, step: 0.01, unit: '', note: 'Represents skirt effectiveness / lateral sealing. Higher values preserve suction and reduce leakage.' },
+        { key: 'pitchSensitivity', label: 'Pitch sensitivity bias', min: 0.2, max: 2.0, step: 0.01, unit: '', note: 'Scales how strongly platform attitude changes amplify mass-flow and pressure variation.' },
+        { key: 'heaveSensitivity', label: 'Heave sensitivity bias', min: 0.2, max: 2.0, step: 0.01, unit: '', note: 'Scales how strongly low mean ride height triggers blockage and instability penalties.' },
+        { key: 'resolution', label: 'Station resolution', min: 50, max: 200, step: 1, unit: '', note: 'Number of longitudinal stations used to discretize the tunnel.' }
+      ]
+    }
+  ];
+
+  const PRESETS = {
+    lowProto: {
+      label: 'Low-downforce sports prototype floor',
+      values: {
+        speedKph: 220,
+        airDensity: 1.18,
+        frontRideHeight: 33,
+        rearRideHeight: 49,
+        heaveOffset: 0,
+        yawAngle: 0,
+        rollAngle: 0,
+        floorLength: 2.35,
+        throatPosition: 0.86,
+        inletHeight: 44,
+        throatHeight: 22,
+        diffuserLength: 0.66,
+        diffuserExitHeight: 64,
+        diffuserAngle: 7.2,
+        tunnelWidth: 0.27,
+        numTunnels: 2,
+        sealingQuality: 0.72,
+        pitchSensitivity: 0.9,
+        heaveSensitivity: 0.9,
+        resolution: 120
+      }
+    },
+    groupC: {
+      label: 'Aggressive Group C / prototype style floor',
+      values: {
+        speedKph: 280,
+        airDensity: 1.19,
+        frontRideHeight: 24,
+        rearRideHeight: 50,
+        heaveOffset: 0,
+        yawAngle: 0,
+        rollAngle: 0,
+        floorLength: 2.65,
+        throatPosition: 0.92,
+        inletHeight: 40,
+        throatHeight: 15,
+        diffuserLength: 0.9,
+        diffuserExitHeight: 94,
+        diffuserAngle: 10.5,
+        tunnelWidth: 0.29,
+        numTunnels: 2,
+        sealingQuality: 0.9,
+        pitchSensitivity: 1.18,
+        heaveSensitivity: 1.22,
+        resolution: 140
+      }
+    },
+    overAggressive: {
+      label: 'Over-aggressive diffuser setup',
+      values: {
+        speedKph: 240,
+        airDensity: 1.18,
+        frontRideHeight: 22,
+        rearRideHeight: 54,
+        heaveOffset: 0,
+        yawAngle: 0,
+        rollAngle: 0,
+        floorLength: 2.5,
+        throatPosition: 0.8,
+        inletHeight: 38,
+        throatHeight: 13,
+        diffuserLength: 0.58,
+        diffuserExitHeight: 112,
+        diffuserAngle: 15.2,
+        tunnelWidth: 0.29,
+        numTunnels: 2,
+        sealingQuality: 0.84,
+        pitchSensitivity: 1.1,
+        heaveSensitivity: 1.15,
+        resolution: 130
+      }
+    },
+    poorSeal: {
+      label: 'Stalled / poor sealing setup',
+      values: {
+        speedKph: 230,
+        airDensity: 1.18,
+        frontRideHeight: 20,
+        rearRideHeight: 44,
+        heaveOffset: 0,
+        yawAngle: 3.2,
+        rollAngle: 1.4,
+        floorLength: 2.45,
+        throatPosition: 0.78,
+        inletHeight: 39,
+        throatHeight: 14,
+        diffuserLength: 0.68,
+        diffuserExitHeight: 92,
+        diffuserAngle: 12.5,
+        tunnelWidth: 0.28,
+        numTunnels: 2,
+        sealingQuality: 0.34,
+        pitchSensitivity: 1.15,
+        heaveSensitivity: 1.3,
+        resolution: 120
+      }
+    },
+    highRake: {
+      label: 'High-rake setup',
+      values: {
+        speedKph: 235,
+        airDensity: 1.18,
+        frontRideHeight: 19,
+        rearRideHeight: 71,
+        heaveOffset: 0,
+        yawAngle: 0,
+        rollAngle: 0,
+        floorLength: 2.42,
+        throatPosition: 0.74,
+        inletHeight: 36,
+        throatHeight: 14,
+        diffuserLength: 0.75,
+        diffuserExitHeight: 98,
+        diffuserAngle: 11.2,
+        tunnelWidth: 0.27,
+        numTunnels: 2,
+        sealingQuality: 0.8,
+        pitchSensitivity: 1.38,
+        heaveSensitivity: 1.08,
+        resolution: 130
+      }
+    }
+  };
+
+  const DEFAULT_PRESET_KEY = 'groupC';
+
+  const state = {
+    presetKey: DEFAULT_PRESET_KEY,
+    params: null,
+    compare: null,
+    sim: null,
+    controls: {},
+    animationStart: performance.now(),
+    particles: []
+  };
+
+  const els = {
+    controlGroups: document.getElementById('controlGroups'),
+    presetSelect: document.getElementById('presetSelect'),
+    applyPresetBtn: document.getElementById('applyPresetBtn'),
+    resetBtn: document.getElementById('resetBtn'),
+    compareBtn: document.getElementById('compareBtn'),
+    clearCompareBtn: document.getElementById('clearCompareBtn'),
+    exportBtn: document.getElementById('exportBtn'),
+    importBtn: document.getElementById('importBtn'),
+    importFile: document.getElementById('importFile'),
+    metrics: document.getElementById('metrics'),
+    secondaryStats: document.getElementById('secondaryStats'),
+    explain: document.getElementById('explain'),
+    overallStatus: document.getElementById('overallStatus'),
+    profileStatus: document.getElementById('profileStatus'),
+    profileCanvas: document.getElementById('profileCanvas'),
+    cpCanvas: document.getElementById('cpCanvas'),
+    heightCanvas: document.getElementById('heightCanvas'),
+    loadCanvas: document.getElementById('loadCanvas'),
+    sweepCanvas: document.getElementById('sweepCanvas')
+  };
+
+  function presetToParams(key) {
+    const preset = PRESETS[key];
+    if (!preset) throw new Error(`Unknown preset: ${key}`);
+    const params = deepClone(preset.values);
+    params.refFrontRideHeight = params.frontRideHeight;
+    params.refRearRideHeight = params.rearRideHeight;
+    return params;
+  }
+
+  function coerceParams(params) {
+    params.numTunnels = Math.round(params.numTunnels);
+    params.resolution = Math.round(params.resolution);
+    params.floorLength = Math.max(0.6, params.floorLength);
+    params.diffuserLength = clamp(params.diffuserLength, 0.12, params.floorLength - 0.05);
+    params.throatPosition = clamp(params.throatPosition, 0.12, params.floorLength - 0.08);
+    params.diffuserExitHeight = Math.max(params.throatHeight + 2, params.diffuserExitHeight);
+    return params;
+  }
+
+  function buildControls() {
+    els.controlGroups.innerHTML = '';
+    for (const group of PARAM_DEFS) {
+      const details = document.createElement('details');
+      details.className = 'group';
+      if (group.open) details.open = true;
+
+      const summary = document.createElement('summary');
+      summary.textContent = group.title;
+      details.appendChild(summary);
+
+      const body = document.createElement('div');
+      body.className = 'group-body';
+
+      for (const def of group.items) {
+        const wrap = document.createElement('div');
+        wrap.className = 'control';
+
+        const top = document.createElement('div');
+        top.className = 'control-top';
+
+        const labelWrap = document.createElement('div');
+        const label = document.createElement('div');
+        label.className = 'control-label';
+        label.textContent = def.label;
+        labelWrap.appendChild(label);
+
+        const note = document.createElement('div');
+        note.className = 'control-note';
+        note.textContent = def.note;
+        labelWrap.appendChild(note);
+        top.appendChild(labelWrap);
+
+        const valueLabel = document.createElement('div');
+        valueLabel.className = 'badge';
+        valueLabel.textContent = '—';
+        top.appendChild(valueLabel);
+        wrap.appendChild(top);
+
+        const inputs = document.createElement('div');
+        inputs.className = 'control-inputs';
+
+        const range = document.createElement('input');
+        range.type = 'range';
+        range.min = def.min;
+        range.max = def.max;
+        range.step = def.step;
+        range.setAttribute('aria-label', def.label);
+
+        const number = document.createElement('input');
+        number.type = 'number';
+        number.min = def.min;
+        number.max = def.max;
+        number.step = def.step;
+        number.setAttribute('aria-label', `${def.label} numeric input`);
+
+        const onInput = (source) => {
+          let next = parseFloat(source.value);
+          if (!Number.isFinite(next)) return;
+          next = clamp(next, def.min, def.max);
+          if (def.step >= 1) next = Math.round(next / def.step) * def.step;
+          state.params[def.key] = next;
+          coerceParams(state.params);
+          syncControls(def.key);
+          recompute();
+        };
+
+        range.addEventListener('input', () => onInput(range));
+        number.addEventListener('input', () => onInput(number));
+
+        inputs.appendChild(range);
+        inputs.appendChild(number);
+        wrap.appendChild(inputs);
+        body.appendChild(wrap);
+
+        state.controls[def.key] = { def, range, number, valueLabel };
+      }
+
+      details.appendChild(body);
+      els.controlGroups.appendChild(details);
+    }
+  }
+
+  function syncControls(singleKey = null) {
+    const entries = singleKey ? [[singleKey, state.controls[singleKey]]] : Object.entries(state.controls);
+    for (const [key, control] of entries) {
+      if (!control) continue;
+      const value = state.params[key];
+      control.range.value = value;
+      control.number.value = value;
+      control.valueLabel.textContent = `${value}${control.def.unit ? ` ${control.def.unit}` : ''}`;
+    }
+  }
+
+  function fillPresetSelect() {
+    els.presetSelect.innerHTML = '';
+    Object.entries(PRESETS).forEach(([key, preset]) => {
+      const option = document.createElement('option');
+      option.value = key;
+      option.textContent = preset.label;
+      els.presetSelect.appendChild(option);
+    });
+    els.presetSelect.value = state.presetKey;
+  }
+
+  function applyPreset(key, { preserveCompare = true } = {}) {
+    state.presetKey = key;
+    state.params = presetToParams(key);
+    if (!preserveCompare) state.compare = null;
+    els.presetSelect.value = key;
+    syncControls();
+    recompute();
+  }
+
+  function getDerivedGeometry(params) {
+    const L = params.floorLength;
+    const throatX = clamp(params.throatPosition, 0.12, L - 0.05);
+    const diffuserStart = clamp(L - params.diffuserLength, throatX, L - 0.03);
+    const actualGeomAngle = radToDeg(Math.atan(Math.max(0, (params.diffuserExitHeight - params.throatHeight) * 0.001 / Math.max(1e-6, L - diffuserStart))));
+    const effectiveDiffuserAngle = Math.max(actualGeomAngle, params.diffuserAngle);
+    return { L, throatX, diffuserStart, actualGeomAngle, effectiveDiffuserAngle };
+  }
+
+  function baseProfileHeight(x, params, geom) {
+    const hIn = params.inletHeight * 0.001;
+    const hT = params.throatHeight * 0.001;
+    const hE = params.diffuserExitHeight * 0.001;
+    const { throatX, diffuserStart, L } = geom;
+    if (x <= throatX) {
+      const s = clamp(x / Math.max(1e-6, throatX), 0, 1);
+      return hIn + (hT - hIn) * easeInOut(s);
+    }
+    if (x <= diffuserStart) return hT;
+    const span = Math.max(1e-6, L - diffuserStart);
+    const s = clamp((x - diffuserStart) / span, 0, 1);
+    const geomSlope = (hE - hT) / span;
+    const targetSlope = Math.tan(degToRad(params.diffuserAngle));
+    const blendedSlope = geomSlope * 0.65 + targetSlope * 0.35;
+    return hermite(hT, 0, hE, blendedSlope * span, s);
+  }
+
+  function rideLineAt(x, frontM, rearM, geom) {
+    return lerp(frontM, rearM, clamp(x / geom.L, 0, 1));
+  }
+
+  function simulateSide(params, sideSign) {
+    const geom = getDerivedGeometry(params);
+    const N = Math.round(params.resolution);
+    const q = 0.5 * params.airDensity * Math.pow(params.speedKph / 3.6, 2);
+    const V = Math.max(1, params.speedKph / 3.6);
+    const nu = 1.5e-5;
+    const totalWidth = params.numTunnels * params.tunnelWidth;
+    const sideWidth = totalWidth * 0.5;
+    const centerGap = Math.max(0, params.numTunnels - 1) * 0.08;
+    const totalSpan = totalWidth + centerGap;
+    const rollDeltaM = 0.5 * totalSpan * Math.sin(degToRad(params.rollAngle)) * sideSign;
+    const yawAbs = Math.abs(params.yawAngle);
+    const yawNorm = clamp(params.yawAngle / 12, -1, 1);
+    const sideYawBias = sideSign * yawNorm;
+
+    const frontRef = params.refFrontRideHeight * 0.001;
+    const rearRef = params.refRearRideHeight * 0.001;
+    const frontNow = params.frontRideHeight * 0.001 + params.heaveOffset * 0.001 + rollDeltaM;
+    const rearNow = params.rearRideHeight * 0.001 + params.heaveOffset * 0.001 + rollDeltaM;
+
+    const sealBase = clamp(params.sealingQuality, 0, 1);
+    const seal = clamp(
+      sealBase
+      * (1 - 0.07 * yawAbs)
+      * (1 - 0.03 * Math.abs(params.rollAngle))
+      * (1 - 0.08 * Math.max(0, sideYawBias)),
+      0.05,
+      1
+    );
+
+    const x = new Array(N);
+    const rawH = new Array(N);
+    const effH = new Array(N);
+    const area = new Array(N);
+    const cp = new Array(N);
+    const uRel = new Array(N);
+    const attached = new Array(N);
+    const localForce = new Array(N);
+    const localDrag = new Array(N);
+    const thetaDeg = new Array(N);
+    const blockage = new Array(N);
+
+    const ds = geom.L / (N - 1);
+    let minEffHeight = Infinity;
+    let minRawHeight = Infinity;
+    let avgRawHeight = 0;
+    let throatIdx = 0;
+    let throatRaw = Infinity;
+
+    for (let i = 0; i < N; i++) {
+      const xi = i * ds;
+      x[i] = xi;
+      const rideRef = rideLineAt(xi, frontRef, rearRef, geom);
+      const rideNowHere = rideLineAt(xi, frontNow, rearNow, geom);
+      const base = baseProfileHeight(xi, params, geom);
+      const pitchLeverage = 0.75 + 0.25 * params.pitchSensitivity;
+      const localH = Math.max(0.003, base + (rideNowHere - rideRef) * pitchLeverage);
+      rawH[i] = localH;
+      if (localH < throatRaw) {
+        throatRaw = localH;
+        throatIdx = i;
+      }
+      minRawHeight = Math.min(minRawHeight, localH);
+      avgRawHeight += localH;
+
+      const ReX = Math.max(5e4, V * Math.max(0.05, xi) / nu);
+      const deltaBL = 0.0008 + 0.09 * Math.max(0.03, xi + 0.03) * Math.pow(ReX, -0.2);
+      const blockageFrac = clamp((2 * deltaBL) / Math.max(localH, 1e-6), 0, 0.95);
+      blockage[i] = blockageFrac;
+      const heavePenalty = 1 + 0.2 * (params.heaveSensitivity - 1);
+      const eff = Math.max(0.0013, localH - (2 * deltaBL) * heavePenalty);
+      effH[i] = eff;
+      area[i] = eff * sideWidth;
+      minEffHeight = Math.min(minEffHeight, eff);
+    }
+
+    avgRawHeight /= N;
+    const A0 = Math.max(1e-6, area[0]);
+    const throatArea = Math.max(1e-6, area[throatIdx]);
+    const throatEffHeight = effH[throatIdx];
+    const blockageAtThroat = blockage[throatIdx];
+    const globalExpansion = (params.diffuserExitHeight * 0.001) / Math.max(params.throatHeight * 0.001, 1e-6);
+    const proximityBoost = 1 + 0.24 * Math.exp(-avgRawHeight / 0.04) * (0.45 + 0.55 * seal);
+    const leakageAttenuation = 0.42 + 0.58 * Math.pow(seal, 1.35);
+    const blockageLimit = 1 - 0.72 * smoothstep(0.38, 0.82, blockageAtThroat * params.heaveSensitivity);
+    const massRatioBase = clamp(leakageAttenuation * blockageLimit, 0.22, 1.05);
+
+    let sepAccumulator = 0;
+    let sepStartIdx = -1;
+    let minCp = Infinity;
+    let sumVel = 0;
+    let totalForce = 0;
+    let frontForce = 0;
+    let rearForce = 0;
+    let totalDrag = 0;
+    let moment = 0;
+
+    for (let i = 0; i < N; i++) {
+      const xi = x[i];
+      const dx = i === 0 ? x[1] - x[0] : i === N - 1 ? x[N - 1] - x[N - 2] : x[i + 1] - x[i - 1];
+      const dh = i === 0 ? rawH[1] - rawH[0] : i === N - 1 ? rawH[N - 1] - rawH[N - 2] : rawH[i + 1] - rawH[i - 1];
+      const slope = dh / Math.max(1e-6, dx);
+      const theta = radToDeg(Math.atan(Math.max(0, slope)));
+      thetaDeg[i] = theta;
+
+      const areaRatio = A0 / Math.max(1e-6, area[i]);
+      let localUrel = clamp(areaRatio * massRatioBase * proximityBoost, 0.45, 3.5);
+
+      const critAngle = clamp(
+        5.8 + 4.9 * seal + 0.015 * V - 0.45 * yawAbs - 0.18 * Math.abs(params.rollAngle),
+        4.8,
+        13.5
+      );
+      const anglePenalty = Math.max(0, (Math.max(theta, params.diffuserAngle) - critAngle) / 3.0);
+      const expansionPenalty = Math.max(0, globalExpansion - (1.65 + 0.72 * seal)) / 0.42;
+      const yawPenalty = Math.max(0, yawAbs - 1.5) * 0.08;
+      const throatPenalty = Math.max(0, (0.013 - throatEffHeight) / 0.004) * 0.14;
+
+      if (xi >= geom.diffuserStart) {
+        sepAccumulator += (anglePenalty + 0.25 * expansionPenalty + yawPenalty + throatPenalty) * (ds / Math.max(0.1, params.diffuserLength)) * (1 + 0.08 * (localUrel - 1));
+      }
+
+      const attach = 1 - 0.86 * smoothstep(1.0, 2.45, sepAccumulator);
+      attached[i] = attach;
+      if (sepStartIdx < 0 && xi >= geom.diffuserStart && attach < 0.97) sepStartIdx = i;
+
+      const lossTerm = 0.04 + 0.045 * (1 - seal) + 0.018 * Math.pow(blockage[i], 1.2) + 0.008 * yawAbs;
+      const cpIdeal = (1 - localUrel * localUrel) * proximityBoost - lossTerm;
+      const recoveryBias = clamp((xi - geom.throatX) / Math.max(1e-6, geom.L - geom.throatX), 0, 1);
+      const cpSeparated = -0.16 - 0.18 * (1 - recoveryBias) - 0.05 * yawAbs;
+      let localCp = cpIdeal * attach + cpSeparated * (1 - attach);
+      localCp *= 1 - 0.1 * Math.max(0, sideYawBias);
+      cp[i] = localCp;
+      uRel[i] = localUrel;
+      minCp = Math.min(minCp, localCp);
+      sumVel += localUrel;
+
+      const stripArea = sideWidth * ds;
+      const force = -localCp * q * stripArea;
+      localForce[i] = force;
+      totalForce += force;
+      totalDrag += q * stripArea * (
+        0.012
+        + 0.011 * Math.pow(localUrel - 1, 2)
+        + 0.032 * (1 - attach)
+        + 0.012 * (1 - seal)
+      );
+      if (xi <= geom.L * 0.5) frontForce += force; else rearForce += force;
+      moment += force * xi;
+      localDrag[i] = q * stripArea * (
+        0.012 + 0.011 * Math.pow(localUrel - 1, 2) + 0.032 * (1 - attach) + 0.012 * (1 - seal)
+      );
+    }
+
+    const avgUrel = sumVel / N;
+    const cop = totalForce > 1e-6 ? moment / totalForce : geom.L * 0.5;
+    const sepSeverity = sepStartIdx >= 0 ? clamp(1 - attached[N - 1], 0, 1) : 0;
+    const stallMargin = clamp(1 - Math.max(sepSeverity, smoothstep(0.45, 0.9, blockageAtThroat)), 0, 1);
+
+    return {
+      sideSign,
+      q,
+      geom,
+      x,
+      rawH,
+      effH,
+      area,
+      cp,
+      uRel,
+      attached,
+      thetaDeg,
+      blockage,
+      localForce,
+      localDrag,
+      throatIdx,
+      throatRaw,
+      throatEffHeight,
+      minRawHeight,
+      minEffHeight,
+      avgRawHeight,
+      avgUrel,
+      minCp,
+      frontForce,
+      rearForce,
+      totalForce,
+      totalDrag,
+      cop,
+      sepStartIdx,
+      sepSeverity,
+      blockageAtThroat,
+      stallMargin,
+      seal,
+      globalExpansion
+    };
+  }
+
+  function mergeSides(left, right, params) {
+    const N = left.x.length;
+    const x = left.x.slice();
+    const rawH = new Array(N);
+    const effH = new Array(N);
+    const cp = new Array(N);
+    const uRel = new Array(N);
+    const localForce = new Array(N);
+    const attached = new Array(N);
+
+    for (let i = 0; i < N; i++) {
+      rawH[i] = 0.5 * (left.rawH[i] + right.rawH[i]);
+      effH[i] = 0.5 * (left.effH[i] + right.effH[i]);
+      cp[i] = 0.5 * (left.cp[i] + right.cp[i]);
+      uRel[i] = 0.5 * (left.uRel[i] + right.uRel[i]);
+      localForce[i] = left.localForce[i] + right.localForce[i];
+      attached[i] = 0.5 * (left.attached[i] + right.attached[i]);
+    }
+
+    const totalForce = left.totalForce + right.totalForce;
+    const totalDrag = left.totalDrag + right.totalDrag;
+    const frontForce = left.frontForce + right.frontForce;
+    const rearForce = left.rearForce + right.rearForce;
+    const cop = totalForce > 1e-6 ? (left.cop * left.totalForce + right.cop * right.totalForce) / totalForce : left.geom.L * 0.5;
+    const balanceFront = totalForce > 1e-6 ? frontForce / totalForce : 0.5;
+    const avgUrel = 0.5 * (left.avgUrel + right.avgUrel);
+    const minCp = Math.min(left.minCp, right.minCp);
+    const minRawHeight = Math.min(left.minRawHeight, right.minRawHeight);
+    const throatEffHeight = Math.min(left.throatEffHeight, right.throatEffHeight);
+    const blockageAtThroat = Math.max(left.blockageAtThroat, right.blockageAtThroat);
+    const sepStartIdx = left.sepStartIdx >= 0 && right.sepStartIdx >= 0
+      ? Math.min(left.sepStartIdx, right.sepStartIdx)
+      : Math.max(left.sepStartIdx, right.sepStartIdx);
+    const sepX = sepStartIdx >= 0 ? x[sepStartIdx] : null;
+    const stallMargin = Math.min(left.stallMargin, right.stallMargin);
+    const asymmetry = totalForce > 1e-6 ? Math.abs(left.totalForce - right.totalForce) / totalForce : 0;
+    const dragProxy = totalDrag;
+    const eff = totalDrag > 1e-6 ? totalForce / totalDrag : 0;
+    const rakeDeg = radToDeg(Math.atan(((params.rearRideHeight - params.frontRideHeight) * 0.001) / Math.max(1e-6, left.geom.L)));
+    const geom = left.geom;
+    const actualGeomAngle = geom.actualGeomAngle;
+    const planArea = params.numTunnels * params.tunnelWidth * geom.L;
+
+    return {
+      x,
+      rawH,
+      effH,
+      cp,
+      uRel,
+      localForce,
+      attached,
+      geom,
+      left,
+      right,
+      totalForce,
+      totalDrag,
+      dragProxy,
+      frontForce,
+      rearForce,
+      cop,
+      balanceFront,
+      avgUrel,
+      minCp,
+      minRawHeight,
+      throatEffHeight,
+      blockageAtThroat,
+      sepStartIdx,
+      sepX,
+      stallMargin,
+      asymmetry,
+      efficiency: eff,
+      rakeDeg,
+      actualGeomAngle,
+      q: left.q,
+      planArea
+    };
+  }
+
+  function simulateCore(params) {
+    params = coerceParams(deepClone(params));
+    const left = simulateSide(params, -1);
+    const right = simulateSide(params, +1);
+    return mergeSides(left, right, params);
+  }
+
+  function withAdjusted(baseParams, overrides) {
+    const next = deepClone(baseParams);
+    Object.assign(next, overrides);
+    return coerceParams(next);
+  }
+
+  function buildSweepData(params) {
+    const speedPts = 22;
+    const heavePts = 18;
+    const speedSeries = [];
+    const heaveSeries = [];
+    const speedMin = 80;
+    const speedMax = 360;
+    for (let i = 0; i < speedPts; i++) {
+      const s = lerp(speedMin, speedMax, i / (speedPts - 1));
+      const sim = simulateCore(withAdjusted(params, { speedKph: s }));
+      speedSeries.push({ x: s, y: sim.totalForce / 1000 });
+    }
+    for (let i = 0; i < heavePts; i++) {
+      const h = lerp(-10, 10, i / (heavePts - 1));
+      const sim = simulateCore(withAdjusted(params, { heaveOffset: h }));
+      heaveSeries.push({ x: h, y: sim.totalForce / 1000 });
+    }
+    return { speedSeries, heaveSeries };
+  }
+
+  function computeSimulation(params) {
+    const sim = simulateCore(params);
+
+    const heaveDelta = 2;
+    const heavePlus = simulateCore(withAdjusted(params, { heaveOffset: params.heaveOffset + heaveDelta }));
+    const heaveMinus = simulateCore(withAdjusted(params, { heaveOffset: params.heaveOffset - heaveDelta }));
+    const dF_dHeave = (heavePlus.totalForce - heaveMinus.totalForce) / (2 * heaveDelta);
+
+    const pitchDelta = 2;
+    const pitchPlus = simulateCore(withAdjusted(params, {
+      frontRideHeight: params.frontRideHeight - pitchDelta,
+      rearRideHeight: params.rearRideHeight + pitchDelta
+    }));
+    const pitchMinus = simulateCore(withAdjusted(params, {
+      frontRideHeight: params.frontRideHeight + pitchDelta,
+      rearRideHeight: params.rearRideHeight - pitchDelta
+    }));
+    const rakePlusDeg = pitchPlus.rakeDeg;
+    const rakeMinusDeg = pitchMinus.rakeDeg;
+    const dF_dRake = (pitchPlus.totalForce - pitchMinus.totalForce) / Math.max(0.01, rakePlusDeg - rakeMinusDeg);
+
+    const speedDelta = 10;
+    const fast = simulateCore(withAdjusted(params, { speedKph: params.speedKph + speedDelta }));
+    const slow = simulateCore(withAdjusted(params, { speedKph: Math.max(40, params.speedKph - speedDelta) }));
+    const speedScale = (fast.totalForce - slow.totalForce) / Math.max(1, (fast.q - slow.q));
+
+    const porpoiseIndex = clamp(
+      (Math.abs(dF_dHeave) / Math.max(1000, sim.totalForce))
+      * (0.5 + sim.blockageAtThroat * 0.9)
+      * (params.speedKph / 260)
+      * (1 + (1 - sim.stallMargin)),
+      0,
+      1.2
+    );
+
+    const sweep = buildSweepData(params);
+
+    return {
+      ...sim,
+      dF_dHeave,
+      dF_dRake,
+      speedScale,
+      porpoiseIndex,
+      sweep,
+      params: deepClone(params)
+    };
+  }
+
+  function updateMetrics(sim) {
+    const metrics = [
+      {
+        label: 'Total underfloor downforce',
+        value: `${fmt(sim.totalForce / 1000, 2)} kN`,
+        sub: `${fmt(sim.totalForce / 9.80665, 0)} kgf equivalent`
+      },
+      {
+        label: 'Front floor downforce',
+        value: `${fmt(sim.frontForce / 1000, 2)} kN`,
+        sub: `${fmt(sim.balanceFront * 100, 1)}% front balance`
+      },
+      {
+        label: 'Rear floor / diffuser downforce',
+        value: `${fmt(sim.rearForce / 1000, 2)} kN`,
+        sub: `${fmt((1 - sim.balanceFront) * 100, 1)}% rear balance`
+      },
+      {
+        label: 'Center of pressure',
+        value: `${fmt(sim.cop, 2)} m`,
+        sub: `${fmt(100 * sim.cop / sim.geom.L, 1)}% of floor length`
+      },
+      {
+        label: 'Underbody drag proxy',
+        value: `${fmt(sim.dragProxy / 1000, 2)} kN`,
+        sub: `L/D ≈ ${fmt(sim.efficiency, 2)}`
+      },
+      {
+        label: 'Minimum pressure coefficient',
+        value: `${fmt(sim.minCp, 2)}`,
+        sub: `Avg tunnel velocity ratio ${fmt(sim.avgUrel, 2)}×`
+      }
+    ];
+
+    els.metrics.innerHTML = metrics.map((m) => `
+      <div class="panel metric">
+        <div class="metric-label">${m.label}</div>
+        <div class="metric-value">${m.value}</div>
+        <div class="metric-sub">${m.sub}</div>
+      </div>
+    `).join('');
+
+    const secondaries = [
+      ['Derived rake angle', `${fmt(sim.rakeDeg, 2)} deg`],
+      ['Geometric diffuser angle', `${fmt(sim.actualGeomAngle, 2)} deg`],
+      ['Throat effective gap', `${fmt(sim.throatEffHeight * 1000, 1)} mm`],
+      ['Minimum raw gap', `${fmt(sim.minRawHeight * 1000, 1)} mm`],
+      ['Throat blockage fraction', `${fmt(sim.blockageAtThroat * 100, 1)} %`],
+      ['Stall margin', `${fmt(sim.stallMargin * 100, 1)} %`],
+      ['Ride-height sensitivity', `${fmtSigned(sim.dF_dHeave / 1000, 3)} kN/mm`],
+      ['Rake sensitivity', `${fmtSigned(sim.dF_dRake / 1000, 3)} kN/deg`],
+      ['Left-right asymmetry', `${fmt(sim.asymmetry * 100, 1)} %`],
+      ['Porpoising tendency index', `${fmt(sim.porpoiseIndex * 100, 0)} / 120`],
+      ['q-normalized force gain', `${fmt(sim.speedScale, 3)} N/Pa`],
+      ['Diffuser separation start', sim.sepX != null ? `${fmt(sim.sepX, 2)} m` : 'Attached to exit']
+    ];
+
+    els.secondaryStats.innerHTML = secondaries.map(([k, v]) => `
+      <div class="mini-stat">
+        <div class="k">${k}</div>
+        <div class="v">${v}</div>
+      </div>
+    `).join('');
+  }
+
+  function buildExplanation(sim) {
+    const notes = [];
+    const throatGap = sim.throatEffHeight * 1000;
+    if (sim.blockageAtThroat > 0.55) {
+      notes.push(`The throat is heavily blockage-limited. Effective throat gap is only ${fmt(throatGap, 1)} mm and the boundary-layer share at the throat is about ${fmt(sim.blockageAtThroat * 100, 0)}%, so the floor is starting to throttle itself instead of continuing to gain suction.`);
+    } else if (sim.blockageAtThroat > 0.35) {
+      notes.push(`The floor is approaching the low-ride-height knee. Throat blockage is moderate at ${fmt(sim.blockageAtThroat * 100, 0)}%, so additional lowering will still gain load, but with much steeper sensitivity and less margin.`);
+    } else {
+      notes.push(`The throat still has usable flow margin. Effective gap is ${fmt(throatGap, 1)} mm with blockage around ${fmt(sim.blockageAtThroat * 100, 0)}%, so the venturi is accelerating the flow without yet falling into a strong self-blockage regime.`);
+    }
+
+    if (sim.sepX != null) {
+      notes.push(`Diffuser separation begins around ${fmt(sim.sepX, 2)} m from the inlet. The combination of expansion ratio, diffuser aggressiveness, and current yaw/ride state is too strong for fully attached pressure recovery, so the rear floor is no longer converting throat velocity into clean recovery.`);
+    } else {
+      notes.push(`The diffuser remains attached through the exit in this operating point. Pressure recovery is therefore contributing to rear downforce instead of collapsing into a separated wake.`);
+    }
+
+    if (sim.params.sealingQuality < 0.5) {
+      notes.push(`Sealing quality is low (${fmt(sim.params.sealingQuality, 2)}), which is bleeding suction away before the tunnel can fully exploit the venturi shape. In this state, leakage is costing more than geometry changes are helping.`);
+    } else if (Math.abs(sim.params.yawAngle) > 2.5) {
+      notes.push(`Yaw is hurting the floor even with decent sealing. At ${fmt(sim.params.yawAngle, 1)} deg yaw the model predicts a meaningful left/right load split of ${fmt(sim.asymmetry * 100, 1)}%, so the outside and inside tunnels are no longer operating symmetrically.`);
+    } else {
+      notes.push(`Sealing is good enough for the floor to behave like a mostly intact venturi system. The main performance drivers are now throat gap, diffuser recovery, and the platform attitude rather than leakage alone.`);
+    }
+
+    if (Math.abs(sim.dF_dHeave) > 900) {
+      notes.push(`Ride-height sensitivity is steep at ${fmtSigned(sim.dF_dHeave / 1000, 3)} kN/mm. That is exactly the kind of slope that tends to produce porpoising or harsh balance changes once the suspension and aero start feeding back into each other.`);
+    } else {
+      notes.push(`Ride-height sensitivity is present but not yet extreme at ${fmtSigned(sim.dF_dHeave / 1000, 3)} kN/mm. This floor should be easier to keep inside a stable operating window than a near-stalled setup.`);
+    }
+
+    const strikeWarn = sim.minRawHeight * 1000 < 8;
+    if (strikeWarn) {
+      notes.push(`Ground-strike warning: minimum raw geometric gap is only ${fmt(sim.minRawHeight * 1000, 1)} mm. Even without modelling compliance or road roughness, this is deep into plank-strike territory for a real car.`);
+    }
+
+    els.explain.innerHTML = notes.map((text) => `<div class="explain-item">${text}</div>`).join('');
+  }
+
+  function updateStatus(sim) {
+    const sep = sim.sepX != null;
+    const strike = sim.minRawHeight * 1000 < 8;
+    const highlySensitive = Math.abs(sim.dF_dHeave) > 900;
+    let label = 'Stable operating point';
+    let cls = 'badge status-good';
+    if (sep || strike || sim.stallMargin < 0.35) {
+      label = 'High stall / floor-strike risk';
+      cls = 'badge status-bad';
+    } else if (highlySensitive || sim.stallMargin < 0.6 || Math.abs(sim.params.yawAngle) > 4) {
+      label = 'Sensitive operating point';
+      cls = 'badge status-warn';
+    }
+    els.overallStatus.className = cls;
+    els.overallStatus.textContent = label;
+
+    const sepText = sim.sepX != null ? `separation starts at ${fmt(sim.sepX, 2)} m` : 'diffuser attached to exit';
+    const blockText = `throat effective gap ${fmt(sim.throatEffHeight * 1000, 1)} mm, blockage ${fmt(sim.blockageAtThroat * 100, 0)}%`;
+    els.profileStatus.textContent = `${sepText} • ${blockText} • front balance ${fmt(sim.balanceFront * 100, 1)}% • rake ${fmt(sim.rakeDeg, 2)} deg`;
+  }
+
+  function drawAxes(ctx, rect, xTicks, yTicks, opts = {}) {
+    const { x, y, w, h } = rect;
+    ctx.save();
+    ctx.strokeStyle = 'rgba(255,255,255,0.08)';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(x, y, w, h);
+
+    ctx.fillStyle = 'rgba(159,176,194,0.9)';
+    ctx.font = '11px system-ui, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'top';
+    for (const tick of xTicks) {
+      const tx = lerp(x, x + w, tick.t);
+      ctx.strokeStyle = 'rgba(255,255,255,0.06)';
+      ctx.beginPath();
+      ctx.moveTo(tx, y);
+      ctx.lineTo(tx, y + h);
+      ctx.stroke();
+      ctx.fillText(tick.label, tx, y + h + 6);
+    }
+
+    ctx.textAlign = 'right';
+    ctx.textBaseline = 'middle';
+    for (const tick of yTicks) {
+      const ty = lerp(y + h, y, tick.t);
+      ctx.strokeStyle = 'rgba(255,255,255,0.05)';
+      ctx.beginPath();
+      ctx.moveTo(x, ty);
+      ctx.lineTo(x + w, ty);
+      ctx.stroke();
+      ctx.fillText(tick.label, x - 8, ty);
+    }
+
+    if (opts.title) {
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'bottom';
+      ctx.fillStyle = 'rgba(229,237,246,0.95)';
+      ctx.font = '12px system-ui, sans-serif';
+      ctx.fillText(opts.title, x, y - 10);
+    }
+
+    ctx.restore();
+  }
+
+  function drawSeriesPlot(canvas, seriesDefs, options) {
+    const { ctx, width, height } = resolveCanvas(canvas);
+    ctx.clearRect(0, 0, width, height);
+    const m = { top: 22, right: 18, bottom: 34, left: 64 };
+    const rect = { x: m.left, y: m.top, w: width - m.left - m.right, h: height - m.top - m.bottom };
+
+    const xs = [];
+    const ys = [];
+    for (const def of seriesDefs) {
+      def.data.forEach((p) => { xs.push(p.x); ys.push(p.y); });
+    }
+    const xMin = options.xMin ?? Math.min(...xs);
+    const xMax = options.xMax ?? Math.max(...xs);
+    const yMin = options.yMin ?? Math.min(...ys);
+    const yMax = options.yMax ?? Math.max(...ys);
+    const yPad = (yMax - yMin || 1) * 0.1;
+    const finalYMin = options.tightY ? yMin : yMin - yPad;
+    const finalYMax = options.tightY ? yMax : yMax + yPad;
+
+    const xTicks = [];
+    const yTicks = [];
+    const tickCount = 5;
+    for (let i = 0; i <= tickCount; i++) {
+      const t = i / tickCount;
+      xTicks.push({ t, label: fmt(lerp(xMin, xMax, t), options.xDigits ?? 2) + (options.xUnit || '') });
+      yTicks.push({ t, label: fmt(lerp(finalYMin, finalYMax, t), options.yDigits ?? 2) + (options.yUnit || '') });
+    }
+    drawAxes(ctx, rect, xTicks, yTicks, { title: options.title });
+
+    if (options.zeroLine && finalYMin < 0 && finalYMax > 0) {
+      const ty = lerp(rect.y + rect.h, rect.y, invLerp(finalYMin, finalYMax, 0));
+      ctx.strokeStyle = 'rgba(255,255,255,0.18)';
+      ctx.setLineDash([6, 6]);
+      ctx.beginPath();
+      ctx.moveTo(rect.x, ty);
+      ctx.lineTo(rect.x + rect.w, ty);
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
+
+    for (const def of seriesDefs) {
+      ctx.save();
+      ctx.beginPath();
+      def.data.forEach((p, i) => {
+        const px = lerp(rect.x, rect.x + rect.w, invLerp(xMin, xMax, p.x));
+        const py = lerp(rect.y + rect.h, rect.y, invLerp(finalYMin, finalYMax, p.y));
+        if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+      });
+      ctx.strokeStyle = def.color;
+      ctx.lineWidth = def.lineWidth || 2.1;
+      if (def.dashed) ctx.setLineDash([6, 6]);
+      ctx.stroke();
+      ctx.restore();
+    }
+  }
+
+  function drawFilledLoadPlot(canvas, sim, compare) {
+    const { ctx, width, height } = resolveCanvas(canvas);
+    ctx.clearRect(0, 0, width, height);
+    const m = { top: 22, right: 18, bottom: 34, left: 64 };
+    const rect = { x: m.left, y: m.top, w: width - m.left - m.right, h: height - m.top - m.bottom };
+
+    const xMin = 0;
+    const xMax = sim.geom.L;
+    const loadKpm = sim.localForce.map((f, i) => ({ x: sim.x[i], y: f / Math.max(1e-6, sim.x.length > 1 ? sim.geom.L / (sim.x.length - 1) : 1) / 1000 }));
+    const ys = loadKpm.map((p) => p.y);
+    if (compare) compare.localForce.forEach((f) => ys.push(f / Math.max(1e-6, compare.geom.L / (compare.x.length - 1)) / 1000));
+    const yMin = Math.min(0, ...ys) - 0.2;
+    const yMax = Math.max(...ys) + 0.2;
+
+    const xTicks = [];
+    const yTicks = [];
+    for (let i = 0; i <= 5; i++) {
+      const t = i / 5;
+      xTicks.push({ t, label: `${fmt(lerp(xMin, xMax, t), 2)} m` });
+      yTicks.push({ t, label: `${fmt(lerp(yMin, yMax, t), 2)} kN/m` });
+    }
+    drawAxes(ctx, rect, xTicks, yTicks, { title: 'Strip load distribution' });
+
+    const yZero = lerp(rect.y + rect.h, rect.y, invLerp(yMin, yMax, 0));
+    ctx.strokeStyle = 'rgba(255,255,255,0.18)';
+    ctx.setLineDash([6, 6]);
+    ctx.beginPath();
+    ctx.moveTo(rect.x, yZero);
+    ctx.lineTo(rect.x + rect.w, yZero);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    ctx.beginPath();
+    loadKpm.forEach((p, i) => {
+      const px = lerp(rect.x, rect.x + rect.w, invLerp(xMin, xMax, p.x));
+      const py = lerp(rect.y + rect.h, rect.y, invLerp(yMin, yMax, p.y));
+      if (i === 0) ctx.moveTo(px, yZero);
+      ctx.lineTo(px, py);
+    });
+    ctx.lineTo(rect.x + rect.w, yZero);
+    ctx.closePath();
+    const grad = ctx.createLinearGradient(0, rect.y, 0, rect.y + rect.h);
+    grad.addColorStop(0, 'rgba(89,208,255,0.45)');
+    grad.addColorStop(1, 'rgba(89,208,255,0.06)');
+    ctx.fillStyle = grad;
+    ctx.fill();
+
+    ctx.beginPath();
+    loadKpm.forEach((p, i) => {
+      const px = lerp(rect.x, rect.x + rect.w, invLerp(xMin, xMax, p.x));
+      const py = lerp(rect.y + rect.h, rect.y, invLerp(yMin, yMax, p.y));
+      if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+    });
+    ctx.strokeStyle = '#67d7ff';
+    ctx.lineWidth = 2.2;
+    ctx.stroke();
+
+    if (compare) {
+      ctx.beginPath();
+      compare.x.forEach((pxv, i) => {
+        const load = compare.localForce[i] / Math.max(1e-6, compare.geom.L / (compare.x.length - 1)) / 1000;
+        const px = lerp(rect.x, rect.x + rect.w, invLerp(0, compare.geom.L, pxv));
+        const py = lerp(rect.y + rect.h, rect.y, invLerp(yMin, yMax, load));
+        if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+      });
+      ctx.setLineDash([6, 6]);
+      ctx.strokeStyle = 'rgba(124,135,150,0.95)';
+      ctx.lineWidth = 1.6;
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
+
+    const copX = lerp(rect.x, rect.x + rect.w, invLerp(0, sim.geom.L, sim.cop));
+    ctx.strokeStyle = 'rgba(138,255,191,0.95)';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(copX, rect.y);
+    ctx.lineTo(copX, rect.y + rect.h);
+    ctx.stroke();
+    ctx.fillStyle = 'rgba(138,255,191,0.95)';
+    ctx.fillRect(copX - 5, rect.y + 8, 10, 10);
+  }
+
+  function drawProfile(sim, compare, timeMs) {
+    const { ctx, width, height } = resolveCanvas(els.profileCanvas);
+    ctx.clearRect(0, 0, width, height);
+
+    const m = { top: 18, right: 18, bottom: 30, left: 22 };
+    const rect = { x: m.left, y: m.top, w: width - m.left - m.right, h: height - m.top - m.bottom };
+    const xMin = 0;
+    const xMax = sim.geom.L;
+    const yMax = Math.max(
+      sim.params.diffuserExitHeight * 0.001 + 0.04,
+      ...sim.rawH,
+      compare ? Math.max(...compare.rawH) : 0
+    );
+    const yMin = -0.01;
+    const mapX = (x) => lerp(rect.x, rect.x + rect.w, invLerp(xMin, xMax, x));
+    const mapY = (y) => lerp(rect.y + rect.h, rect.y, invLerp(yMin, yMax, y));
+
+    ctx.fillStyle = 'rgba(7,10,16,1)';
+    ctx.fillRect(rect.x, rect.y, rect.w, rect.h);
+
+    const gradientBg = ctx.createLinearGradient(0, rect.y, 0, rect.y + rect.h);
+    gradientBg.addColorStop(0, 'rgba(89,208,255,0.02)');
+    gradientBg.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = gradientBg;
+    ctx.fillRect(rect.x, rect.y, rect.w, rect.h);
+
+    for (let i = 0; i <= 10; i++) {
+      const xx = lerp(rect.x, rect.x + rect.w, i / 10);
+      ctx.strokeStyle = 'rgba(255,255,255,0.045)';
+      ctx.beginPath();
+      ctx.moveTo(xx, rect.y);
+      ctx.lineTo(xx, rect.y + rect.h);
+      ctx.stroke();
+    }
+    for (let i = 0; i <= 5; i++) {
+      const t = i / 5;
+      const yy = lerp(rect.y + rect.h, rect.y, t);
+      ctx.strokeStyle = 'rgba(255,255,255,0.04)';
+      ctx.beginPath();
+      ctx.moveTo(rect.x, yy);
+      ctx.lineTo(rect.x + rect.w, yy);
+      ctx.stroke();
+      ctx.fillStyle = 'rgba(159,176,194,0.7)';
+      ctx.font = '11px system-ui, sans-serif';
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(`${fmt(lerp(yMin, yMax, 1 - t) * 1000, 0)} mm`, rect.x + 8, yy - 10);
+    }
+
+    const groundY = mapY(0);
+    ctx.strokeStyle = 'rgba(229,237,246,0.25)';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(rect.x, groundY);
+    ctx.lineTo(rect.x + rect.w, groundY);
+    ctx.stroke();
+
+    const profilePath = new Path2D();
+    profilePath.moveTo(mapX(sim.x[0]), groundY);
+    for (let i = 0; i < sim.x.length; i++) profilePath.lineTo(mapX(sim.x[i]), mapY(sim.rawH[i]));
+    profilePath.lineTo(mapX(sim.x[sim.x.length - 1]), groundY);
+    profilePath.closePath();
+
+    const cpFill = ctx.createLinearGradient(rect.x, rect.y, rect.x + rect.w, rect.y);
+    for (let i = 0; i < sim.x.length; i += Math.max(1, Math.floor(sim.x.length / 32))) {
+      const t = invLerp(0, sim.geom.L, sim.x[i]);
+      cpFill.addColorStop(clamp(t, 0, 1), colorForCp(sim.cp[i], 0.28));
+    }
+    cpFill.addColorStop(1, colorForCp(sim.cp[sim.cp.length - 1], 0.28));
+    ctx.fillStyle = cpFill;
+    ctx.fill(profilePath);
+
+    ctx.strokeStyle = 'rgba(138,255,191,0.98)';
+    ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    sim.x.forEach((xi, i) => {
+      const px = mapX(xi);
+      const py = mapY(sim.rawH[i]);
+      if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+    });
+    ctx.stroke();
+
+    ctx.beginPath();
+    sim.x.forEach((xi, i) => {
+      const px = mapX(xi);
+      const py = mapY(sim.effH[i]);
+      if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+    });
+    ctx.strokeStyle = 'rgba(89,208,255,0.75)';
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([5, 4]);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    if (compare) {
+      ctx.beginPath();
+      compare.x.forEach((xi, i) => {
+        const px = mapX(xi * sim.geom.L / compare.geom.L);
+        const py = mapY(compare.rawH[i]);
+        if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+      });
+      ctx.setLineDash([7, 6]);
+      ctx.strokeStyle = 'rgba(124,135,150,0.95)';
+      ctx.lineWidth = 1.8;
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
+
+    if (sim.sepX != null) {
+      const px = mapX(sim.sepX);
+      ctx.strokeStyle = 'rgba(255,179,77,0.95)';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(px, rect.y + 8);
+      ctx.lineTo(px, rect.y + rect.h - 8);
+      ctx.stroke();
+      ctx.fillStyle = 'rgba(255,179,77,0.95)';
+      ctx.fillRect(px - 4, rect.y + 8, 8, 8);
+    }
+
+    const throatX = mapX(sim.geom.throatX);
+    ctx.strokeStyle = 'rgba(255,255,255,0.16)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(throatX, rect.y);
+    ctx.lineTo(throatX, rect.y + rect.h);
+    ctx.stroke();
+    const diffStartX = mapX(sim.geom.diffuserStart);
+    ctx.beginPath();
+    ctx.moveTo(diffStartX, rect.y);
+    ctx.lineTo(diffStartX, rect.y + rect.h);
+    ctx.stroke();
+
+    const copX = mapX(sim.cop);
+    const copY = mapY(sim.rawH[Math.floor(invLerp(0, sim.geom.L, sim.cop) * (sim.rawH.length - 1))] * 0.45);
+    ctx.fillStyle = 'rgba(138,255,191,0.95)';
+    ctx.beginPath();
+    ctx.arc(copX, copY, 6, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.font = '12px system-ui, sans-serif';
+    ctx.fillText('CoP', copX + 10, copY - 12);
+
+    const tNow = (timeMs - state.animationStart) * 0.001;
+    const particleCount = 42;
+    while (state.particles.length < particleCount) {
+      state.particles.push({ seed: Math.random(), band: Math.random(), offset: Math.random() });
+    }
+
+    for (let i = 0; i < particleCount; i++) {
+      const p = state.particles[i];
+      const travel = (tNow * 0.12 + p.offset) % 1;
+      const idx = clamp(Math.floor(travel * (sim.x.length - 1)), 0, sim.x.length - 1);
+      const u = sim.uRel[idx];
+      const yBand = 0.18 + p.band * 0.58;
+      const localGap = sim.effH[idx];
+      const yFlow = sim.rawH[idx] * yBand;
+      const px = mapX(sim.x[idx]);
+      const py = mapY(yFlow);
+      const radius = 1.8 + 1.2 * smoothstep(1.0, 2.6, u);
+      ctx.fillStyle = colorForVelocity(u, 0.9);
+      ctx.beginPath();
+      ctx.arc(px, py, radius, 0, Math.PI * 2);
+      ctx.fill();
+
+      const streak = 8 + u * 5;
+      ctx.strokeStyle = colorForVelocity(u, 0.6);
+      ctx.lineWidth = 1.2;
+      ctx.beginPath();
+      ctx.moveTo(px - streak, py);
+      ctx.lineTo(px + 1, py);
+      ctx.stroke();
+    }
+
+    ctx.fillStyle = 'rgba(229,237,246,0.9)';
+    ctx.font = '12px system-ui, sans-serif';
+    ctx.textAlign = 'right';
+    ctx.textBaseline = 'top';
+    ctx.fillText(`q = ${fmt(sim.q, 0)} Pa`, rect.x + rect.w - 8, rect.y + 8);
+    ctx.fillText(`Min Cp = ${fmt(sim.minCp, 2)}`, rect.x + rect.w - 8, rect.y + 24);
+    ctx.fillText(`Avg U/U∞ = ${fmt(sim.avgUrel, 2)}×`, rect.x + rect.w - 8, rect.y + 40);
+  }
+
+  function drawSplitSweep(canvas, sweep) {
+    const { ctx, width, height } = resolveCanvas(canvas);
+    ctx.clearRect(0, 0, width, height);
+
+    const outer = { x: 16, y: 20, w: width - 32, h: height - 34 };
+    const gap = 16;
+    const panelW = (outer.w - gap) * 0.5;
+    const rectA = { x: outer.x, y: outer.y + 18, w: panelW, h: outer.h - 28 };
+    const rectB = { x: outer.x + panelW + gap, y: outer.y + 18, w: panelW, h: outer.h - 28 };
+
+    function drawOne(rect, data, title, xLabel, yMin, yMax, color) {
+      const xs = data.map(p => p.x);
+      const ys = data.map(p => p.y);
+      const xMin = Math.min(...xs);
+      const xMax = Math.max(...xs);
+      const localYMin = yMin ?? (Math.min(...ys) - 0.2);
+      const localYMax = yMax ?? (Math.max(...ys) + 0.2);
+
+      const xTicks = [];
+      const yTicks = [];
+      for (let i = 0; i <= 4; i++) {
+        const t = i / 4;
+        xTicks.push({ t, label: `${fmt(lerp(xMin, xMax, t), 0)}${xLabel}` });
+        yTicks.push({ t, label: `${fmt(lerp(localYMin, localYMax, t), 1)} kN` });
+      }
+      drawAxes(ctx, rect, xTicks, yTicks, { title });
+
+      ctx.beginPath();
+      data.forEach((p, i) => {
+        const px = lerp(rect.x, rect.x + rect.w, invLerp(xMin, xMax, p.x));
+        const py = lerp(rect.y + rect.h, rect.y, invLerp(localYMin, localYMax, p.y));
+        if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+      });
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 2.2;
+      ctx.stroke();
+    }
+
+    const allY = sweep.speedSeries.map(p => p.y).concat(sweep.heaveSeries.map(p => p.y));
+    const yMin = Math.min(...allY) - 0.25;
+    const yMax = Math.max(...allY) + 0.25;
+    drawOne(rectA, sweep.speedSeries, 'Speed sweep', ' km/h', yMin, yMax, '#67d7ff');
+    drawOne(rectB, sweep.heaveSeries, 'Heave sweep', ' mm', yMin, yMax, '#8affbf');
+  }
+
+  function renderAllStatic() {
+    const sim = state.sim;
+    const compare = state.compare;
+    const cpSeries = [
+      { data: sim.x.map((x, i) => ({ x, y: sim.cp[i] })), color: '#67d7ff' }
+    ];
+    if (compare) cpSeries.push({ data: compare.x.map((x, i) => ({ x, y: compare.cp[i] })), color: 'rgba(124,135,150,0.95)', dashed: true, lineWidth: 1.6 });
+    drawSeriesPlot(els.cpCanvas, cpSeries, { title: 'Cp(x)', xUnit: ' m', yUnit: '', xDigits: 2, yDigits: 2, zeroLine: true, xMin: 0, xMax: sim.geom.L });
+
+    const heightSeries = [
+      { data: sim.x.map((x, i) => ({ x, y: sim.rawH[i] * 1000 })), color: '#8affbf' },
+      { data: sim.x.map((x, i) => ({ x, y: sim.effH[i] * 1000 })), color: '#67d7ff', dashed: true, lineWidth: 1.8 }
+    ];
+    if (compare) heightSeries.push({ data: compare.x.map((x, i) => ({ x, y: compare.rawH[i] * 1000 })), color: 'rgba(124,135,150,0.95)', dashed: true, lineWidth: 1.6 });
+    drawSeriesPlot(els.heightCanvas, heightSeries, { title: 'Height(x)', xUnit: ' m', yUnit: ' mm', xDigits: 2, yDigits: 0, xMin: 0, xMax: sim.geom.L, tightY: false });
+
+    drawFilledLoadPlot(els.loadCanvas, sim, compare);
+    drawSplitSweep(els.sweepCanvas, sim.sweep);
+  }
+
+  function animationFrame(now) {
+    if (state.sim) drawProfile(state.sim, state.compare, now);
+    requestAnimationFrame(animationFrame);
+  }
+
+  function recompute() {
+    state.params = coerceParams(state.params);
+    state.sim = computeSimulation(state.params);
+    updateMetrics(state.sim);
+    buildExplanation(state.sim);
+    updateStatus(state.sim);
+    renderAllStatic();
+  }
+
+  function storeCompare() {
+    if (!state.sim) return;
+    state.compare = deepClone({
+      x: state.sim.x,
+      rawH: state.sim.rawH,
+      effH: state.sim.effH,
+      cp: state.sim.cp,
+      localForce: state.sim.localForce,
+      geom: state.sim.geom,
+      totalForce: state.sim.totalForce,
+      params: state.sim.params
+    });
+    renderAllStatic();
+  }
+
+  function clearCompare() {
+    state.compare = null;
+    renderAllStatic();
+  }
+
+  function exportJSON() {
+    const payload = {
+      presetKey: state.presetKey,
+      params: state.params,
+      exportedAt: new Date().toISOString()
+    };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'venturi-floor-setup.json';
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  function importJSON(file) {
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const payload = JSON.parse(reader.result);
+        if (!payload.params) throw new Error('Missing params object.');
+        state.presetKey = payload.presetKey && PRESETS[payload.presetKey] ? payload.presetKey : state.presetKey;
+        state.params = coerceParams(payload.params);
+        fillPresetSelect();
+        els.presetSelect.value = state.presetKey;
+        syncControls();
+        recompute();
+      } catch (err) {
+        window.alert(`Import failed: ${err.message}`);
+      }
+    };
+    reader.readAsText(file);
+  }
+
+  function bindEvents() {
+    els.applyPresetBtn.addEventListener('click', () => applyPreset(els.presetSelect.value));
+    els.resetBtn.addEventListener('click', () => applyPreset(state.presetKey, { preserveCompare: false }));
+    els.compareBtn.addEventListener('click', storeCompare);
+    els.clearCompareBtn.addEventListener('click', clearCompare);
+    els.exportBtn.addEventListener('click', exportJSON);
+    els.importBtn.addEventListener('click', () => els.importFile.click());
+    els.importFile.addEventListener('change', (e) => importJSON(e.target.files[0]));
+    window.addEventListener('resize', renderAllStatic);
+  }
+
+  function init() {
+    fillPresetSelect();
+    state.params = presetToParams(DEFAULT_PRESET_KEY);
+    buildControls();
+    syncControls();
+    bindEvents();
+    recompute();
+    requestAnimationFrame(animationFrame);
+  }
+
+  init();
+})();
+</script>
+</body>
+</html>
