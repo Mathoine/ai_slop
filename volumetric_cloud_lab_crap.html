@@ -1,0 +1,1218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Volumetric Cloud Lab</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: rgba(10, 14, 24, 0.72);
+      --bg-strong: rgba(10, 14, 24, 0.9);
+      --line: rgba(255, 255, 255, 0.12);
+      --line-strong: rgba(255, 255, 255, 0.18);
+      --text: rgba(236, 241, 255, 0.95);
+      --muted: rgba(205, 215, 240, 0.72);
+      --accent: #a8cbff;
+      --shadow: 0 18px 60px rgba(0, 0, 0, 0.35);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    * { box-sizing: border-box; }
+
+    html, body {
+      margin: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: #05070d;
+      color: var(--text);
+    }
+
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+      cursor: grab;
+    }
+
+    canvas.dragging {
+      cursor: grabbing;
+    }
+
+    .ui {
+      position: fixed;
+      inset: 18px auto 18px 18px;
+      width: min(380px, calc(100vw - 36px));
+      max-height: calc(100vh - 36px);
+      overflow: auto;
+      padding: 16px 16px 14px;
+      background: linear-gradient(180deg, var(--bg), rgba(6, 10, 18, 0.74));
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(18px) saturate(130%);
+      -webkit-backdrop-filter: blur(18px) saturate(130%);
+      user-select: none;
+    }
+
+    .ui::-webkit-scrollbar { width: 10px; }
+    .ui::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.12);
+      border-radius: 999px;
+      border: 2px solid transparent;
+      background-clip: padding-box;
+    }
+
+    .topbar {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+
+    .title {
+      margin: 0;
+      font-size: 1.08rem;
+      line-height: 1.2;
+      letter-spacing: 0.02em;
+      font-weight: 700;
+    }
+
+    .subtitle {
+      margin: 6px 0 0;
+      font-size: 0.84rem;
+      line-height: 1.45;
+      color: var(--muted);
+    }
+
+    .badge {
+      flex: 0 0 auto;
+      padding: 7px 10px;
+      border: 1px solid var(--line-strong);
+      border-radius: 999px;
+      font-size: 0.74rem;
+      color: var(--accent);
+      background: rgba(168, 203, 255, 0.08);
+      white-space: nowrap;
+    }
+
+    .section {
+      margin-top: 14px;
+      padding-top: 14px;
+      border-top: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .section h2 {
+      margin: 0 0 10px;
+      font-size: 0.83rem;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      font-weight: 700;
+      color: rgba(232, 238, 255, 0.82);
+    }
+
+    .controls {
+      display: grid;
+      gap: 10px;
+    }
+
+    .row {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .control {
+      display: grid;
+      gap: 6px;
+    }
+
+    .label-line {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      font-size: 0.82rem;
+      color: rgba(240, 244, 255, 0.92);
+    }
+
+    .label-line span:last-child {
+      color: var(--muted);
+      font-variant-numeric: tabular-nums;
+      min-width: 58px;
+      text-align: right;
+    }
+
+    input[type="range"] {
+      width: 100%;
+      appearance: none;
+      height: 5px;
+      border-radius: 999px;
+      background: linear-gradient(90deg, rgba(255,255,255,0.18), rgba(255,255,255,0.08));
+      outline: none;
+    }
+
+    input[type="range"]::-webkit-slider-thumb {
+      appearance: none;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: radial-gradient(circle at 35% 35%, #ffffff, #a9ccff 72%, #6e9ee4 100%);
+      box-shadow: 0 0 0 1px rgba(255,255,255,0.18), 0 3px 12px rgba(74, 127, 214, 0.45);
+      cursor: pointer;
+    }
+
+    input[type="range"]::-moz-range-thumb {
+      width: 16px;
+      height: 16px;
+      border: none;
+      border-radius: 50%;
+      background: radial-gradient(circle at 35% 35%, #ffffff, #a9ccff 72%, #6e9ee4 100%);
+      box-shadow: 0 0 0 1px rgba(255,255,255,0.18), 0 3px 12px rgba(74, 127, 214, 0.45);
+      cursor: pointer;
+    }
+
+    select, button {
+      width: 100%;
+      color: var(--text);
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid rgba(255, 255, 255, 0.11);
+      border-radius: 12px;
+      padding: 10px 12px;
+      font: inherit;
+      outline: none;
+    }
+
+    select:focus, button:focus, input:focus {
+      border-color: rgba(168, 203, 255, 0.5);
+      box-shadow: 0 0 0 3px rgba(112, 157, 238, 0.14);
+    }
+
+    .buttons {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-top: 12px;
+    }
+
+    button {
+      cursor: pointer;
+      transition: transform 120ms ease, background 160ms ease, border-color 160ms ease;
+    }
+
+    button:hover {
+      transform: translateY(-1px);
+      background: rgba(255, 255, 255, 0.1);
+      border-color: rgba(255,255,255,0.16);
+    }
+
+    .legend {
+      margin-top: 12px;
+      padding: 10px 12px;
+      border-radius: 14px;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.07);
+      font-size: 0.78rem;
+      line-height: 1.5;
+      color: var(--muted);
+    }
+
+    .stats {
+      position: fixed;
+      right: 18px;
+      top: 18px;
+      padding: 10px 12px;
+      border-radius: 14px;
+      border: 1px solid rgba(255,255,255,0.11);
+      background: rgba(9, 12, 20, 0.5);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      font-size: 0.8rem;
+      color: rgba(241, 245, 255, 0.84);
+      font-variant-numeric: tabular-nums;
+      pointer-events: none;
+    }
+
+    .stats strong {
+      color: white;
+      font-weight: 700;
+    }
+
+    @media (max-width: 880px) {
+      .ui {
+        width: min(420px, calc(100vw - 24px));
+        inset: 12px auto 12px 12px;
+      }
+      .stats {
+        right: 12px;
+        top: 12px;
+      }
+    }
+  </style>
+<script type="text/javascript" nonce="571d8f2323c54ab99fed696eae8" src="//local.adguard.org?ts=1774458868411&amp;type=content-script&amp;dmn=chatgpt.com&amp;url=https%3A%2F%2Fchatgpt.com%2Fbackend-api%2Festuary%2Fcontent%3Fid%3Dfile_00000000a540720aaf74c805cefeca09%26ts%3D492905%26p%3Dfs%26cid%3D1%26sig%3Dfc8ec64912c8adb2cf5b6c4f8938f957c8d8f54cb3549114829d1b1768a32f0d%26v%3D0&amp;app=com.apple.Safari&amp;css=2&amp;js=1&amp;rel=1&amp;rji=1&amp;sbe=1&amp;stealth=1&amp;st-wrtc&amp;st-push&amp;st-loc&amp;st-java&amp;st-dnt"></script><script type="text/javascript" nonce="571d8f2323c54ab99fed696eae8" src="//local.adguard.org?ts=1774458868411&amp;name=AdGuard%20Extra&amp;type=user-script"></script></head>
+<body>
+  <canvas id="gl"></canvas>
+
+  <aside class="ui">
+    <div class="topbar">
+      <div>
+        <h1 class="title">Volumetric Cloud Lab</h1>
+        <p class="subtitle">Shader-based layered cloud volumes with tunable structure, wind, lighting, and atmosphere.</p>
+      </div>
+      <div class="badge">offline single file</div>
+    </div>
+
+    <div class="controls">
+      <div class="control">
+        <label class="label-line" for="preset">
+          <span>Preset</span>
+          <span id="presetLabel">Fair-weather cumulus</span>
+        </label>
+        <select id="preset"></select>
+      </div>
+      <div class="control">
+        <label class="label-line" for="quality">
+          <span>Render quality</span>
+          <span id="qualityLabel">High</span>
+        </label>
+        <select id="quality"></select>
+      </div>
+    </div>
+
+    <section class="section">
+      <h2>Cloud field</h2>
+      <div class="controls" id="sliders-main"></div>
+    </section>
+
+    <section class="section">
+      <h2>Lighting and sky</h2>
+      <div class="controls" id="sliders-light"></div>
+    </section>
+
+    <div class="buttons">
+      <button id="randomize" type="button">Randomize atmosphere</button>
+      <button id="resetCamera" type="button">Reset camera</button>
+    </div>
+
+    <div class="legend">
+      Drag the sky to orbit. Use the mouse wheel to adjust the field of view. Presets change the underlying layer mix rather than swapping out a different renderer.
+    </div>
+  </aside>
+
+  <div class="stats" id="stats"><strong>—</strong></div>
+
+  <script>
+    (() => {
+      const canvas = document.getElementById('gl');
+      const stats = document.getElementById('stats');
+
+      const gl = canvas.getContext('webgl2', {
+        antialias: false,
+        alpha: false,
+        depth: false,
+        stencil: false,
+        preserveDrawingBuffer: false,
+        premultipliedAlpha: false,
+        powerPreference: 'high-performance'
+      });
+
+      if (!gl) {
+        document.body.innerHTML = '<div style="padding:24px;color:white;font-family:system-ui">WebGL2 is required for this demo.</div>';
+        return;
+      }
+
+      const fullScreenVertexSource = `#version 300 es
+      precision highp float;
+      layout(location = 0) in vec2 aPosition;
+      out vec2 vUv;
+      void main() {
+        vUv = aPosition * 0.5 + 0.5;
+        gl_Position = vec4(aPosition, 0.0, 1.0);
+      }`;
+
+      const cloudFragmentSource = `#version 300 es
+      precision highp float;
+      out vec4 outColor;
+      in vec2 vUv;
+
+      uniform vec2 uResolution;
+      uniform float uTime;
+      uniform float uCoverage;
+      uniform float uDensity;
+      uniform float uSoftness;
+      uniform float uScale;
+      uniform float uLayerHeight;
+      uniform float uWindSpeed;
+      uniform vec2 uWindDir;
+      uniform float uSunAzimuth;
+      uniform float uSunElevation;
+      uniform float uSkyTint;
+      uniform float uStorminess;
+      uniform float uStepCount;
+      uniform vec3 uCamPos;
+      uniform vec3 uCamForward;
+      uniform vec3 uCamRight;
+      uniform vec3 uCamUp;
+      uniform float uFov;
+
+      uniform vec3 uLayerBase;
+      uniform vec3 uLayerThickness;
+      uniform vec3 uLayerDensity;
+      uniform vec3 uLayerCoverage;
+      uniform vec3 uLayerPuffy;
+      uniform vec3 uLayerSheet;
+      uniform vec3 uLayerWispy;
+      uniform vec3 uLayerScale;
+
+      const float PI = 3.141592653589793;
+      const int MAX_STEPS = 48;
+
+      float hash12(vec2 p) {
+        vec3 p3 = fract(vec3(p.xyx) * 0.1031);
+        p3 += dot(p3, p3.yzx + 33.33);
+        return fract((p3.x + p3.y) * p3.z);
+      }
+
+      float hash13(vec3 p3) {
+        p3 = fract(p3 * 0.1031);
+        p3 += dot(p3, p3.yzx + 33.33);
+        return fract((p3.x + p3.y) * p3.z);
+      }
+
+      float noise2(vec2 p) {
+        vec2 i = floor(p);
+        vec2 f = fract(p);
+        f = f * f * (3.0 - 2.0 * f);
+        float a = hash12(i);
+        float b = hash12(i + vec2(1.0, 0.0));
+        float c = hash12(i + vec2(0.0, 1.0));
+        float d = hash12(i + vec2(1.0, 1.0));
+        return mix(mix(a, b, f.x), mix(c, d, f.x), f.y);
+      }
+
+      float fbm2(vec2 p) {
+        float sum = 0.0;
+        float amp = 0.55;
+        for (int i = 0; i < 3; i++) {
+          sum += noise2(p) * amp;
+          p = p * 2.02 + vec2(13.1, 7.7);
+          amp *= 0.5;
+        }
+        return sum;
+      }
+
+      float noise3Fast(vec3 p) {
+        float z0 = floor(p.z);
+        float zf = fract(p.z);
+        float a = noise2(p.xy + z0 * vec2(0.137, 0.193));
+        float b = noise2(p.xy + (z0 + 1.0) * vec2(0.137, 0.193));
+        return mix(a, b, zf);
+      }
+
+      float puffyProfile(float h) {
+        float lower = smoothstep(0.04, 0.18, h);
+        float upper = 1.0 - smoothstep(0.62, 1.0, h);
+        return clamp(lower * upper * 1.45, 0.0, 1.0);
+      }
+
+      float sheetProfile(float h) {
+        float lower = smoothstep(0.0, 0.08, h);
+        float upper = 1.0 - smoothstep(0.88, 1.0, h);
+        return pow(clamp(lower * upper * 1.18, 0.0, 1.0), 0.78);
+      }
+
+      float wispyProfile(float h) {
+        float center = exp(-pow((h - 0.52) * 2.1, 2.0) * 2.2);
+        float taper = smoothstep(0.06, 0.22, h) * (1.0 - smoothstep(0.78, 1.0, h));
+        return center * taper;
+      }
+
+      float layerDensityAt(vec3 p, int idx) {
+        float base = idx == 0 ? uLayerBase.x : (idx == 1 ? uLayerBase.y : uLayerBase.z);
+        float thick = idx == 0 ? uLayerThickness.x : (idx == 1 ? uLayerThickness.y : uLayerThickness.z);
+        float lden = idx == 0 ? uLayerDensity.x : (idx == 1 ? uLayerDensity.y : uLayerDensity.z);
+        float lcov = idx == 0 ? uLayerCoverage.x : (idx == 1 ? uLayerCoverage.y : uLayerCoverage.z);
+        float lpuf = idx == 0 ? uLayerPuffy.x : (idx == 1 ? uLayerPuffy.y : uLayerPuffy.z);
+        float lsht = idx == 0 ? uLayerSheet.x : (idx == 1 ? uLayerSheet.y : uLayerSheet.z);
+        float lwis = idx == 0 ? uLayerWispy.x : (idx == 1 ? uLayerWispy.y : uLayerWispy.z);
+        float lscale = idx == 0 ? uLayerScale.x : (idx == 1 ? uLayerScale.y : uLayerScale.z);
+
+        float h = (p.y - base) / max(thick, 1e-3);
+        if (h <= 0.0 || h >= 1.0) return 0.0;
+
+        vec2 wind = uWindDir * uWindSpeed * uTime;
+        float globalScale = 0.00042 / max(uScale, 0.08);
+        vec2 uv = p.xz * globalScale * lscale;
+        uv += wind * (0.00075 + float(idx) * 0.00023);
+
+        float macro = fbm2(uv + vec2(10.0 * float(idx), 3.0 * float(idx)));
+        float detail = noise3Fast(vec3(uv * 2.35 + float(idx) * 9.0, p.y * 0.00135 + float(idx) * 5.0));
+        float erosion = noise3Fast(vec3(uv * 4.2 - 8.0, p.y * 0.0022 + 13.0));
+        float streak = noise2(vec2(uv.x * 0.35 + float(idx) * 1.7, uv.y * 1.6 + p.y * 0.0004));
+
+        float coverBias = mix(0.14, -0.05, uSoftness);
+        float threshold = clamp(mix(0.18, 0.84, lcov * uCoverage) + coverBias, 0.02, 0.98);
+
+        float storm = smoothstep(0.58, 0.9, macro) * uStorminess;
+        float towerStretch = 1.0 + storm * lpuf * 2.2;
+        float puffProfileV = puffyProfile(clamp(h / towerStretch, 0.0, 1.0));
+        float puff = smoothstep(threshold, 1.0, macro + detail * 0.18 + storm * 0.09) * puffProfileV;
+        float sheet = smoothstep(threshold - 0.12, 1.0, macro * 0.88 + detail * 0.12) * sheetProfile(h);
+        float wispy = smoothstep(threshold + 0.02, 1.0, macro * 0.6 + streak * 0.4) * wispyProfile(h);
+
+        float density = puff * lpuf + sheet * lsht + wispy * lwis;
+        density *= mix(0.62, 1.0, erosion + detail * 0.35);
+        density *= lden * uDensity;
+        return max(density, 0.0);
+      }
+
+      float sampleDensity(vec3 p) {
+        float d = layerDensityAt(p, 0) + layerDensityAt(p, 1) + layerDensityAt(p, 2);
+        return min(d, 1.4);
+      }
+
+      vec3 skyColor(vec3 rd, vec3 sunDir) {
+        float up = clamp(rd.y * 0.5 + 0.5, 0.0, 1.0);
+        float dayMix = clamp(sin(uSunElevation) * 0.7 + 0.4, 0.05, 1.0);
+
+        vec3 zenithDay = vec3(0.18, 0.40, 0.83);
+        vec3 horizonDay = vec3(0.62, 0.77, 0.97);
+        vec3 zenithSunset = vec3(0.20, 0.12, 0.36);
+        vec3 horizonSunset = vec3(0.98, 0.55, 0.24);
+        vec3 zenithNight = vec3(0.015, 0.02, 0.05);
+        vec3 horizonNight = vec3(0.06, 0.08, 0.14);
+
+        vec3 zenith = mix(zenithNight, mix(zenithSunset, zenithDay, smoothstep(0.18, 0.65, dayMix)), dayMix);
+        vec3 horizon = mix(horizonNight, mix(horizonSunset, horizonDay, smoothstep(0.16, 0.62, dayMix)), dayMix);
+
+        vec3 tintColor = mix(vec3(0.86, 0.92, 1.0), vec3(1.15, 0.95, 0.88), uSkyTint);
+        zenith *= tintColor;
+        horizon *= tintColor;
+
+        vec3 sky = mix(horizon, zenith, pow(up, 0.62));
+
+        float sunAmount = max(dot(rd, sunDir), 0.0);
+        float glow = exp2(-6.5 * (1.0 - sunAmount)) * 0.28;
+        float disk = pow(sunAmount, 760.0) * 10.0;
+        vec3 sunColor = mix(vec3(1.0, 0.86, 0.7), vec3(1.0, 0.98, 0.93), smoothstep(0.05, 0.45, dayMix));
+        sky += sunColor * (glow + disk * dayMix);
+
+        float horizonHaze = exp(-max(rd.y + 0.02, 0.0) * 12.0) * 0.12;
+        sky += vec3(0.95, 0.78, 0.62) * horizonHaze * (1.0 - dayMix * 0.55);
+
+        if (rd.y < -0.01) {
+          float groundFade = smoothstep(-0.22, 0.04, rd.y);
+          vec3 ground = mix(vec3(0.010, 0.013, 0.022), vec3(0.12, 0.15, 0.17), dayMix);
+          sky = mix(ground, sky, groundFade);
+        }
+
+        return sky;
+      }
+
+      vec3 cloudLight(vec3 p, vec3 rd, vec3 sunDir, float density) {
+        float ahead = sampleDensity(p + sunDir * 260.0);
+        float farther = sampleDensity(p + sunDir * 520.0);
+        float shadow = clamp(1.0 / (1.0 + ahead * 1.1 + farther * 0.65), 0.18, 1.0);
+        float mu = clamp(dot(rd, sunDir), 0.0, 1.0);
+        float silver = pow(1.0 - mu, 4.0);
+        float powder = 1.0 - exp(-density * 1.15);
+
+        vec3 warmSun = mix(vec3(1.04, 0.93, 0.88), vec3(1.14, 0.82, 0.62), 1.0 - clamp(sin(uSunElevation) * 0.7 + 0.5, 0.0, 1.0));
+        vec3 ambient = mix(vec3(0.50, 0.57, 0.66), vec3(0.25, 0.30, 0.40), uStorminess * 0.65);
+        vec3 lit = ambient * 0.9 + warmSun * (0.24 + shadow * 1.0);
+        lit += warmSun * silver * 0.38 * shadow;
+        lit *= mix(0.92, 1.14, powder);
+        return lit;
+      }
+
+      void main() {
+        vec2 fragCoord = vUv * uResolution;
+        vec2 uv = (fragCoord - 0.5 * uResolution) / max(uResolution.y, 1.0);
+
+        float fovScale = tan(radians(uFov) * 0.5);
+        vec3 rd = normalize(uCamForward + uv.x * fovScale * uCamRight + uv.y * fovScale * uCamUp);
+        vec3 ro = uCamPos;
+
+        vec3 sunDir = normalize(vec3(
+          cos(uSunElevation) * cos(uSunAzimuth),
+          sin(uSunElevation),
+          cos(uSunElevation) * sin(uSunAzimuth)
+        ));
+
+        vec3 col = skyColor(rd, sunDir);
+
+        if (rd.y > -0.25) {
+          float yMin = min(uLayerBase.x, min(uLayerBase.y, uLayerBase.z)) - 140.0;
+          float yMax = max(uLayerBase.x + uLayerThickness.x, max(uLayerBase.y + uLayerThickness.y, uLayerBase.z + uLayerThickness.z)) + 140.0;
+          float maxDist = mix(9000.0, 18000.0, 1.0 - clamp(rd.y * 2.3 + 0.25, 0.0, 1.0));
+          float t0 = 0.0;
+          float t1 = maxDist;
+
+          if (abs(rd.y) > 0.0005) {
+            float ty0 = (yMin - ro.y) / rd.y;
+            float ty1 = (yMax - ro.y) / rd.y;
+            t0 = max(0.0, min(ty0, ty1));
+            t1 = min(maxDist, max(ty0, ty1));
+          }
+
+          if (t1 > t0) {
+            float jitter = hash12(gl_FragCoord.xy + vec2(fract(uTime), fract(uTime * 1.37)) * 17.0);
+            float steps = clamp(uStepCount, 8.0, float(MAX_STEPS));
+            float rangeLen = t1 - t0;
+            float stepLen = max(70.0, rangeLen / steps);
+            float t = t0 + jitter * stepLen;
+            float trans = 1.0;
+            vec3 accum = vec3(0.0);
+
+            for (int i = 0; i < MAX_STEPS; i++) {
+              if (float(i) >= steps || trans < 0.015 || t > t1) break;
+              vec3 p = ro + rd * t;
+              float density = sampleDensity(p);
+              if (density > 0.01) {
+                vec3 light = cloudLight(p, rd, sunDir, density);
+                float alpha = clamp(density * stepLen * 0.0019, 0.0, 0.34);
+                accum += light * alpha * trans;
+                trans *= (1.0 - alpha);
+              }
+              t += stepLen;
+            }
+
+            col = accum + col * trans;
+          }
+        }
+
+        float vignette = 1.0 - dot(uv * 0.52, uv * 0.34);
+        col *= clamp(vignette, 0.76, 1.0);
+        col = col / (col + vec3(1.0));
+        col = pow(col, vec3(0.95));
+
+        outColor = vec4(col, 1.0);
+      }`;
+
+      const presentFragmentSource = `#version 300 es
+      precision highp float;
+      out vec4 outColor;
+      in vec2 vUv;
+      uniform sampler2D uScene;
+      uniform vec2 uSceneResolution;
+      void main() {
+        vec2 texel = 1.0 / max(uSceneResolution, vec2(1.0));
+        vec3 center = texture(uScene, vUv).rgb;
+        vec3 north = texture(uScene, vUv + vec2(0.0, texel.y)).rgb;
+        vec3 south = texture(uScene, vUv - vec2(0.0, texel.y)).rgb;
+        vec3 east = texture(uScene, vUv + vec2(texel.x, 0.0)).rgb;
+        vec3 west = texture(uScene, vUv - vec2(texel.x, 0.0)).rgb;
+        vec3 blur = (north + south + east + west) * 0.25;
+        vec3 color = mix(blur, center, 1.08);
+        outColor = vec4(color, 1.0);
+      }`;
+
+      function compileShader(type, source) {
+        const shader = gl.createShader(type);
+        gl.shaderSource(shader, source);
+        gl.compileShader(shader);
+        if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+          const log = gl.getShaderInfoLog(shader);
+          gl.deleteShader(shader);
+          throw new Error(log || 'Shader compilation failed');
+        }
+        return shader;
+      }
+
+      function createProgram(vsSource, fsSource) {
+        const program = gl.createProgram();
+        const vs = compileShader(gl.VERTEX_SHADER, vsSource);
+        const fs = compileShader(gl.FRAGMENT_SHADER, fsSource);
+        gl.attachShader(program, vs);
+        gl.attachShader(program, fs);
+        gl.linkProgram(program);
+        gl.deleteShader(vs);
+        gl.deleteShader(fs);
+        if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+          const log = gl.getProgramInfoLog(program);
+          gl.deleteProgram(program);
+          throw new Error(log || 'Program linking failed');
+        }
+        return program;
+      }
+
+      let cloudProgram;
+      let presentProgram;
+      try {
+        cloudProgram = createProgram(fullScreenVertexSource, cloudFragmentSource);
+        presentProgram = createProgram(fullScreenVertexSource, presentFragmentSource);
+      } catch (error) {
+        document.body.innerHTML = `<div style="padding:24px;color:white;font-family:system-ui;white-space:pre-wrap">Shader error:\n${String(error.message || error)}</div>`;
+        return;
+      }
+
+      const cloudLoc = {};
+      const cloudUniformNames = [
+        'uResolution','uTime','uCoverage','uDensity','uSoftness','uScale','uLayerHeight',
+        'uWindSpeed','uWindDir','uSunAzimuth','uSunElevation','uSkyTint','uStorminess',
+        'uStepCount','uCamPos','uCamForward','uCamRight','uCamUp','uFov','uLayerBase',
+        'uLayerThickness','uLayerDensity','uLayerCoverage','uLayerPuffy','uLayerSheet',
+        'uLayerWispy','uLayerScale'
+      ];
+      for (const name of cloudUniformNames) cloudLoc[name] = gl.getUniformLocation(cloudProgram, name);
+
+      const presentLoc = {
+        uScene: gl.getUniformLocation(presentProgram, 'uScene'),
+        uSceneResolution: gl.getUniformLocation(presentProgram, 'uSceneResolution')
+      };
+
+      const quad = gl.createBuffer();
+      gl.bindBuffer(gl.ARRAY_BUFFER, quad);
+      gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([
+        -1, -1,
+         1, -1,
+        -1,  1,
+        -1,  1,
+         1, -1,
+         1,  1
+      ]), gl.STATIC_DRAW);
+
+      const vao = gl.createVertexArray();
+      gl.bindVertexArray(vao);
+      gl.enableVertexAttribArray(0);
+      gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
+      gl.bindVertexArray(null);
+
+      const qualityModes = {
+        low:    { label: 'Low',    minScale: 0.34, maxScale: 0.50, minSteps: 12, maxSteps: 18 },
+        medium: { label: 'Medium', minScale: 0.42, maxScale: 0.62, minSteps: 16, maxSteps: 24 },
+        high:   { label: 'High',   minScale: 0.52, maxScale: 0.78, minSteps: 20, maxSteps: 30 },
+        ultra:  { label: 'Ultra',  minScale: 0.66, maxScale: 1.00, minSteps: 24, maxSteps: 36 }
+      };
+
+      const presetData = {
+        fair: {
+          label: 'Fair-weather cumulus',
+          params: { coverage: 0.42, density: 0.95, layerHeight: 0.45, softness: 0.48, scale: 1.0, windSpeed: 0.36, windDirDeg: 18, sunAzimuthDeg: 38, sunElevationDeg: 48, skyTint: 0.22, storminess: 0.12 },
+          layers: {
+            base: [700, 2600, 6200],
+            thickness: [1700, 1200, 900],
+            density: [1.0, 0.22, 0.08],
+            coverage: [0.45, 0.28, 0.18],
+            puffy: [1.0, 0.35, 0.0],
+            sheet: [0.15, 0.25, 0.0],
+            wispy: [0.0, 0.05, 1.0],
+            scale: [1.0, 1.35, 2.2]
+          }
+        },
+        broken: {
+          label: 'Broken stratocumulus',
+          params: { coverage: 0.70, density: 1.0, layerHeight: 0.38, softness: 0.55, scale: 0.92, windSpeed: 0.42, windDirDeg: 55, sunAzimuthDeg: 32, sunElevationDeg: 36, skyTint: 0.18, storminess: 0.18 },
+          layers: {
+            base: [520, 1950, 5400],
+            thickness: [1200, 900, 800],
+            density: [0.86, 0.34, 0.04],
+            coverage: [0.80, 0.36, 0.16],
+            puffy: [0.56, 0.45, 0.0],
+            sheet: [0.88, 0.52, 0.0],
+            wispy: [0.0, 0.08, 0.48],
+            scale: [0.85, 1.25, 2.5]
+          }
+        },
+        cirrus: {
+          label: 'Thin cirrus',
+          params: { coverage: 0.30, density: 0.62, layerHeight: 0.62, softness: 0.72, scale: 1.24, windSpeed: 0.62, windDirDeg: 88, sunAzimuthDeg: 24, sunElevationDeg: 42, skyTint: 0.12, storminess: 0.06 },
+          layers: {
+            base: [1600, 5200, 8200],
+            thickness: [700, 850, 700],
+            density: [0.06, 0.12, 0.42],
+            coverage: [0.20, 0.22, 0.34],
+            puffy: [0.0, 0.08, 0.0],
+            sheet: [0.06, 0.12, 0.2],
+            wispy: [0.18, 0.58, 1.0],
+            scale: [1.6, 2.4, 3.4]
+          }
+        },
+        overcast: {
+          label: 'Full overcast',
+          params: { coverage: 0.95, density: 1.14, layerHeight: 0.34, softness: 0.78, scale: 0.85, windSpeed: 0.28, windDirDeg: 22, sunAzimuthDeg: 14, sunElevationDeg: 18, skyTint: 0.10, storminess: 0.30 },
+          layers: {
+            base: [420, 1600, 4200],
+            thickness: [1400, 900, 700],
+            density: [1.12, 0.34, 0.08],
+            coverage: [1.0, 0.78, 0.18],
+            puffy: [0.12, 0.05, 0.0],
+            sheet: [1.0, 0.78, 0.22],
+            wispy: [0.0, 0.0, 0.16],
+            scale: [0.72, 1.0, 2.1]
+          }
+        },
+        storm: {
+          label: 'Storm buildup',
+          params: { coverage: 0.64, density: 1.3, layerHeight: 0.50, softness: 0.40, scale: 0.90, windSpeed: 0.52, windDirDeg: 132, sunAzimuthDeg: 210, sunElevationDeg: 15, skyTint: 0.08, storminess: 0.92 },
+          layers: {
+            base: [550, 2300, 6800],
+            thickness: [2400, 2200, 1200],
+            density: [1.2, 0.78, 0.14],
+            coverage: [0.68, 0.55, 0.18],
+            puffy: [1.0, 0.85, 0.0],
+            sheet: [0.35, 0.38, 0.0],
+            wispy: [0.0, 0.08, 0.34],
+            scale: [0.72, 0.98, 2.2]
+          }
+        },
+        fog: {
+          label: 'Foggy morning',
+          params: { coverage: 0.84, density: 1.0, layerHeight: 0.18, softness: 0.92, scale: 1.08, windSpeed: 0.10, windDirDeg: 12, sunAzimuthDeg: 25, sunElevationDeg: 10, skyTint: 0.34, storminess: 0.12 },
+          layers: {
+            base: [-40, 850, 4400],
+            thickness: [420, 540, 650],
+            density: [1.36, 0.22, 0.03],
+            coverage: [1.0, 0.62, 0.10],
+            puffy: [0.0, 0.12, 0.0],
+            sheet: [1.0, 0.72, 0.0],
+            wispy: [0.0, 0.0, 0.20],
+            scale: [0.82, 1.25, 2.4]
+          }
+        },
+        sunset: {
+          label: 'Sunset dramatic sky',
+          params: { coverage: 0.58, density: 1.02, layerHeight: 0.47, softness: 0.50, scale: 1.0, windSpeed: 0.40, windDirDeg: 64, sunAzimuthDeg: 246, sunElevationDeg: 8, skyTint: 0.86, storminess: 0.35 },
+          layers: {
+            base: [780, 2700, 7300],
+            thickness: [1800, 1200, 850],
+            density: [1.0, 0.30, 0.18],
+            coverage: [0.56, 0.34, 0.22],
+            puffy: [1.0, 0.42, 0.0],
+            sheet: [0.20, 0.26, 0.08],
+            wispy: [0.0, 0.18, 1.0],
+            scale: [0.95, 1.25, 2.7]
+          }
+        }
+      };
+
+      const params = {
+        preset: 'fair',
+        quality: 'medium',
+        coverage: 0.42,
+        density: 0.95,
+        layerHeight: 0.45,
+        softness: 0.48,
+        scale: 1.0,
+        windSpeed: 0.36,
+        windDirDeg: 18,
+        sunAzimuthDeg: 38,
+        sunElevationDeg: 48,
+        skyTint: 0.22,
+        storminess: 0.12,
+      };
+
+      const layerState = {
+        base: [700, 2600, 6200],
+        thickness: [1700, 1200, 900],
+        density: [1.0, 0.22, 0.08],
+        coverage: [0.45, 0.28, 0.18],
+        puffy: [1.0, 0.35, 0.0],
+        sheet: [0.15, 0.25, 0.0],
+        wispy: [0.0, 0.05, 1.0],
+        scale: [1.0, 1.35, 2.2]
+      };
+
+      const camera = {
+        yaw: 0.45,
+        pitch: 0.18,
+        fov: 54,
+        pos: [0, 160, 0]
+      };
+
+      function clonePresetLayers(presetLayers) {
+        for (const key of Object.keys(layerState)) {
+          layerState[key] = presetLayers[key].slice();
+        }
+      }
+
+      function applyPreset(name, syncUI = true) {
+        const preset = presetData[name] || presetData.fair;
+        params.preset = name;
+        Object.assign(params, preset.params);
+        clonePresetLayers(preset.layers);
+        if (syncUI) syncAllControls();
+      }
+
+      const sliderSpecsMain = [
+        { key: 'coverage', label: 'Coverage', min: 0, max: 1, step: 0.01, format: v => v.toFixed(2) },
+        { key: 'density', label: 'Density', min: 0.1, max: 1.6, step: 0.01, format: v => v.toFixed(2) },
+        { key: 'layerHeight', label: 'Layer height bias', min: 0.05, max: 0.9, step: 0.01, format: v => v.toFixed(2) },
+        { key: 'softness', label: 'Softness / erosion', min: 0, max: 1, step: 0.01, format: v => v.toFixed(2) },
+        { key: 'scale', label: 'Structure scale', min: 0.45, max: 1.8, step: 0.01, format: v => v.toFixed(2) },
+        { key: 'windSpeed', label: 'Wind speed', min: 0, max: 1.2, step: 0.01, format: v => v.toFixed(2) },
+        { key: 'windDirDeg', label: 'Wind direction', min: 0, max: 360, step: 1, format: v => `${Math.round(v)}°` },
+        { key: 'storminess', label: 'Storminess / instability', min: 0, max: 1, step: 0.01, format: v => v.toFixed(2) }
+      ];
+
+      const sliderSpecsLight = [
+        { key: 'sunAzimuthDeg', label: 'Sun azimuth', min: 0, max: 360, step: 1, format: v => `${Math.round(v)}°` },
+        { key: 'sunElevationDeg', label: 'Sun elevation', min: -5, max: 85, step: 1, format: v => `${Math.round(v)}°` },
+        { key: 'skyTint', label: 'Sky tint / warmth', min: 0, max: 1, step: 0.01, format: v => v.toFixed(2) }
+      ];
+
+      const controlMap = new Map();
+
+      function createSlider(spec, parent) {
+        const wrapper = document.createElement('div');
+        wrapper.className = 'control';
+
+        const label = document.createElement('label');
+        label.className = 'label-line';
+        label.htmlFor = spec.key;
+        label.innerHTML = `<span>${spec.label}</span><span id="${spec.key}-value"></span>`;
+
+        const input = document.createElement('input');
+        input.type = 'range';
+        input.id = spec.key;
+        input.min = spec.min;
+        input.max = spec.max;
+        input.step = spec.step;
+        input.value = params[spec.key];
+        input.addEventListener('input', () => {
+          params[spec.key] = Number(input.value);
+          updateSingleControl(spec.key, spec.format(params[spec.key]));
+        });
+
+        wrapper.appendChild(label);
+        wrapper.appendChild(input);
+        parent.appendChild(wrapper);
+        controlMap.set(spec.key, { input, formatter: spec.format });
+        updateSingleControl(spec.key, spec.format(params[spec.key]));
+      }
+
+      function updateSingleControl(key, text) {
+        const el = document.getElementById(`${key}-value`);
+        if (el) el.textContent = text;
+      }
+
+      function syncAllControls() {
+        for (const [key, data] of controlMap.entries()) {
+          data.input.value = params[key];
+          updateSingleControl(key, data.formatter(params[key]));
+        }
+        presetSelect.value = params.preset;
+        qualitySelect.value = params.quality;
+        document.getElementById('presetLabel').textContent = presetData[params.preset].label;
+        document.getElementById('qualityLabel').textContent = qualityModes[params.quality].label;
+      }
+
+      sliderSpecsMain.forEach(spec => createSlider(spec, document.getElementById('sliders-main')));
+      sliderSpecsLight.forEach(spec => createSlider(spec, document.getElementById('sliders-light')));
+
+      const presetSelect = document.getElementById('preset');
+      for (const [key, value] of Object.entries(presetData)) {
+        const option = document.createElement('option');
+        option.value = key;
+        option.textContent = value.label;
+        presetSelect.appendChild(option);
+      }
+      presetSelect.addEventListener('change', () => {
+        applyPreset(presetSelect.value, true);
+      });
+
+      const qualitySelect = document.getElementById('quality');
+      for (const [key, value] of Object.entries(qualityModes)) {
+        const option = document.createElement('option');
+        option.value = key;
+        option.textContent = value.label;
+        qualitySelect.appendChild(option);
+      }
+      qualitySelect.addEventListener('change', () => {
+        params.quality = qualitySelect.value;
+        performanceState.qualityTarget = 0.45;
+        document.getElementById('qualityLabel').textContent = qualityModes[params.quality].label;
+        resizeTargets(true);
+      });
+
+      function resetCamera() {
+        camera.yaw = 0.45;
+        camera.pitch = 0.18;
+        camera.fov = 54;
+      }
+
+      function randomRange(a, b) {
+        return a + Math.random() * (b - a);
+      }
+
+      function randomizeAtmosphere() {
+        const presetKeys = Object.keys(presetData);
+        const basePreset = presetData[presetKeys[Math.floor(Math.random() * presetKeys.length)]];
+        Object.assign(params, basePreset.params);
+        clonePresetLayers(basePreset.layers);
+
+        params.coverage = Math.min(1, Math.max(0, params.coverage + randomRange(-0.15, 0.15)));
+        params.density = Math.max(0.1, Math.min(1.6, params.density + randomRange(-0.18, 0.22)));
+        params.layerHeight = Math.max(0.05, Math.min(0.9, params.layerHeight + randomRange(-0.08, 0.08)));
+        params.softness = Math.max(0, Math.min(1, params.softness + randomRange(-0.18, 0.18)));
+        params.scale = Math.max(0.45, Math.min(1.8, params.scale + randomRange(-0.16, 0.22)));
+        params.windSpeed = Math.max(0, Math.min(1.2, params.windSpeed + randomRange(-0.22, 0.28)));
+        params.windDirDeg = (params.windDirDeg + randomRange(-90, 90) + 360) % 360;
+        params.sunAzimuthDeg = (params.sunAzimuthDeg + randomRange(-60, 60) + 360) % 360;
+        params.sunElevationDeg = Math.max(-5, Math.min(85, params.sunElevationDeg + randomRange(-18, 18)));
+        params.skyTint = Math.max(0, Math.min(1, params.skyTint + randomRange(-0.25, 0.25)));
+        params.storminess = Math.max(0, Math.min(1, params.storminess + randomRange(-0.2, 0.24)));
+
+        layerState.base = layerState.base.map((v, i) => v + randomRange(-220, 220) * (i + 1) * 0.25);
+        layerState.thickness = layerState.thickness.map(v => Math.max(220, v * randomRange(0.78, 1.32)));
+        layerState.density = layerState.density.map(v => Math.max(0, v * randomRange(0.7, 1.4)));
+        layerState.coverage = layerState.coverage.map(v => Math.max(0, Math.min(1, v + randomRange(-0.16, 0.16))));
+        layerState.scale = layerState.scale.map(v => Math.max(0.45, v * randomRange(0.78, 1.25)));
+
+        syncAllControls();
+      }
+
+      document.getElementById('randomize').addEventListener('click', randomizeAtmosphere);
+      document.getElementById('resetCamera').addEventListener('click', resetCamera);
+
+      applyPreset('fair', true);
+      params.quality = 'medium';
+      syncAllControls();
+
+      let dragging = false;
+      let lastX = 0;
+      let lastY = 0;
+
+      canvas.addEventListener('pointerdown', (event) => {
+        dragging = true;
+        lastX = event.clientX;
+        lastY = event.clientY;
+        canvas.classList.add('dragging');
+        canvas.setPointerCapture(event.pointerId);
+      });
+
+      canvas.addEventListener('pointermove', (event) => {
+        if (!dragging) return;
+        const dx = event.clientX - lastX;
+        const dy = event.clientY - lastY;
+        lastX = event.clientX;
+        lastY = event.clientY;
+        camera.yaw += dx * 0.0042;
+        camera.pitch -= dy * 0.0036;
+        camera.pitch = Math.max(-1.30, Math.min(1.30, camera.pitch));
+      });
+
+      function releasePointer(event) {
+        dragging = false;
+        canvas.classList.remove('dragging');
+        if (event && typeof event.pointerId === 'number') {
+          try { canvas.releasePointerCapture(event.pointerId); } catch (_) {}
+        }
+      }
+
+      canvas.addEventListener('pointerup', releasePointer);
+      canvas.addEventListener('pointercancel', releasePointer);
+      canvas.addEventListener('pointerleave', releasePointer);
+
+      canvas.addEventListener('wheel', (event) => {
+        event.preventDefault();
+        camera.fov = Math.max(30, Math.min(82, camera.fov + event.deltaY * 0.02));
+      }, { passive: false });
+
+      function normalize(v) {
+        const len = Math.hypot(v[0], v[1], v[2]) || 1;
+        return [v[0] / len, v[1] / len, v[2] / len];
+      }
+
+      function cross(a, b) {
+        return [
+          a[1] * b[2] - a[2] * b[1],
+          a[2] * b[0] - a[0] * b[2],
+          a[0] * b[1] - a[1] * b[0]
+        ];
+      }
+
+      const sceneFbo = gl.createFramebuffer();
+      const sceneTex = gl.createTexture();
+      gl.bindTexture(gl.TEXTURE_2D, sceneTex);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+      gl.bindTexture(gl.TEXTURE_2D, null);
+
+      let displayWidth = 0;
+      let displayHeight = 0;
+      let sceneWidth = 0;
+      let sceneHeight = 0;
+      let dpr = 1;
+
+      const performanceState = {
+        qualityTarget: 0.45,
+        effectiveScale: 0,
+        effectiveSteps: 0,
+        resizePending: true,
+        lastAdjustTime: 0,
+        fpsSmooth: 60
+      };
+
+      function getEffectiveQuality() {
+        const q = qualityModes[params.quality] || qualityModes.medium;
+        const t = Math.min(1, Math.max(0, performanceState.qualityTarget));
+        return {
+          scale: q.minScale + (q.maxScale - q.minScale) * t,
+          steps: Math.round(q.minSteps + (q.maxSteps - q.minSteps) * t)
+        };
+      }
+
+      function allocateSceneTexture(width, height) {
+        gl.bindTexture(gl.TEXTURE_2D, sceneTex);
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, width, height, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+        gl.bindFramebuffer(gl.FRAMEBUFFER, sceneFbo);
+        gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, sceneTex, 0);
+        gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+        gl.bindTexture(gl.TEXTURE_2D, null);
+      }
+
+      function resizeTargets(force = false) {
+        dpr = Math.min(window.devicePixelRatio || 1, 1.1);
+        const width = Math.max(2, Math.floor(window.innerWidth * dpr));
+        const height = Math.max(2, Math.floor(window.innerHeight * dpr));
+        const eq = getEffectiveQuality();
+        const targetSceneWidth = Math.max(2, Math.floor(width * eq.scale));
+        const targetSceneHeight = Math.max(2, Math.floor(height * eq.scale));
+
+        if (force || width !== displayWidth || height !== displayHeight) {
+          displayWidth = width;
+          displayHeight = height;
+          canvas.width = width;
+          canvas.height = height;
+        }
+
+        if (force || targetSceneWidth !== sceneWidth || targetSceneHeight !== sceneHeight) {
+          sceneWidth = targetSceneWidth;
+          sceneHeight = targetSceneHeight;
+          allocateSceneTexture(sceneWidth, sceneHeight);
+        }
+
+        performanceState.effectiveScale = eq.scale;
+        performanceState.effectiveSteps = eq.steps;
+        performanceState.resizePending = false;
+      }
+
+      window.addEventListener('resize', () => {
+        performanceState.resizePending = true;
+      });
+
+      let frameCount = 0;
+      let lastFpsTime = performance.now();
+      let fps = 0;
+      let prevQuality = params.quality;
+
+      function updateAdaptiveQuality(now) {
+        if (now - performanceState.lastAdjustTime < 850) return false;
+        performanceState.lastAdjustTime = now;
+
+        let changed = false;
+        if (performanceState.fpsSmooth < 22) {
+          performanceState.qualityTarget = Math.max(0, performanceState.qualityTarget - 0.16);
+          changed = true;
+        } else if (performanceState.fpsSmooth < 30) {
+          performanceState.qualityTarget = Math.max(0, performanceState.qualityTarget - 0.08);
+          changed = true;
+        } else if (performanceState.fpsSmooth > 54) {
+          performanceState.qualityTarget = Math.min(1, performanceState.qualityTarget + 0.06);
+          changed = true;
+        }
+
+        if (changed) resizeTargets(true);
+        return changed;
+      }
+
+      function render(now) {
+        if (params.quality !== prevQuality) {
+          prevQuality = params.quality;
+          performanceState.resizePending = true;
+        }
+        if (performanceState.resizePending || displayWidth === 0 || displayHeight === 0 || sceneWidth === 0 || sceneHeight === 0) {
+          resizeTargets(true);
+        }
+
+        const t = now * 0.001;
+        const windRad = params.windDirDeg * Math.PI / 180;
+        const sunAz = params.sunAzimuthDeg * Math.PI / 180;
+        const sunEl = params.sunElevationDeg * Math.PI / 180;
+
+        const cy = Math.cos(camera.yaw);
+        const sy = Math.sin(camera.yaw);
+        const cp = Math.cos(camera.pitch);
+        const sp = Math.sin(camera.pitch);
+        const forward = normalize([cy * cp, sp, sy * cp]);
+        const worldUp = [0, 1, 0];
+        let right = cross(forward, worldUp);
+        if (Math.hypot(right[0], right[1], right[2]) < 1e-5) right = [1, 0, 0];
+        right = normalize(right);
+        const up = normalize(cross(right, forward));
+
+        const heightBias = (params.layerHeight - 0.45) * 2400;
+        const adjustedBase = layerState.base.map((value, index) => value + heightBias * (index === 0 ? 0.8 : index === 1 ? 0.55 : 0.3));
+        const adjustedThickness = layerState.thickness.map((value, index) => value * (1 + params.storminess * (index === 0 ? 0.45 : index === 1 ? 0.28 : 0.06)));
+        const adjustedCoverage = layerState.coverage.map((value, index) => Math.max(0, Math.min(1, value + (params.coverage - presetData[params.preset].params.coverage) * (index === 0 ? 0.65 : 0.35))));
+
+        gl.bindVertexArray(vao);
+
+        gl.bindFramebuffer(gl.FRAMEBUFFER, sceneFbo);
+        gl.viewport(0, 0, sceneWidth, sceneHeight);
+        gl.useProgram(cloudProgram);
+        gl.uniform2f(cloudLoc.uResolution, sceneWidth, sceneHeight);
+        gl.uniform1f(cloudLoc.uTime, t);
+        gl.uniform1f(cloudLoc.uCoverage, params.coverage);
+        gl.uniform1f(cloudLoc.uDensity, params.density);
+        gl.uniform1f(cloudLoc.uSoftness, params.softness);
+        gl.uniform1f(cloudLoc.uScale, params.scale);
+        gl.uniform1f(cloudLoc.uLayerHeight, params.layerHeight);
+        gl.uniform1f(cloudLoc.uWindSpeed, params.windSpeed * 150);
+        gl.uniform2f(cloudLoc.uWindDir, Math.cos(windRad), Math.sin(windRad));
+        gl.uniform1f(cloudLoc.uSunAzimuth, sunAz);
+        gl.uniform1f(cloudLoc.uSunElevation, sunEl);
+        gl.uniform1f(cloudLoc.uSkyTint, params.skyTint);
+        gl.uniform1f(cloudLoc.uStorminess, params.storminess);
+        gl.uniform1f(cloudLoc.uStepCount, performanceState.effectiveSteps);
+        gl.uniform3f(cloudLoc.uCamPos, camera.pos[0], camera.pos[1], camera.pos[2]);
+        gl.uniform3f(cloudLoc.uCamForward, forward[0], forward[1], forward[2]);
+        gl.uniform3f(cloudLoc.uCamRight, right[0], right[1], right[2]);
+        gl.uniform3f(cloudLoc.uCamUp, up[0], up[1], up[2]);
+        gl.uniform1f(cloudLoc.uFov, camera.fov);
+        gl.uniform3f(cloudLoc.uLayerBase, adjustedBase[0], adjustedBase[1], adjustedBase[2]);
+        gl.uniform3f(cloudLoc.uLayerThickness, adjustedThickness[0], adjustedThickness[1], adjustedThickness[2]);
+        gl.uniform3f(cloudLoc.uLayerDensity, layerState.density[0], layerState.density[1], layerState.density[2]);
+        gl.uniform3f(cloudLoc.uLayerCoverage, adjustedCoverage[0], adjustedCoverage[1], adjustedCoverage[2]);
+        gl.uniform3f(cloudLoc.uLayerPuffy, layerState.puffy[0], layerState.puffy[1], layerState.puffy[2]);
+        gl.uniform3f(cloudLoc.uLayerSheet, layerState.sheet[0], layerState.sheet[1], layerState.sheet[2]);
+        gl.uniform3f(cloudLoc.uLayerWispy, layerState.wispy[0], layerState.wispy[1], layerState.wispy[2]);
+        gl.uniform3f(cloudLoc.uLayerScale, layerState.scale[0], layerState.scale[1], layerState.scale[2]);
+        gl.drawArrays(gl.TRIANGLES, 0, 6);
+
+        gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+        gl.viewport(0, 0, displayWidth, displayHeight);
+        gl.useProgram(presentProgram);
+        gl.activeTexture(gl.TEXTURE0);
+        gl.bindTexture(gl.TEXTURE_2D, sceneTex);
+        gl.uniform1i(presentLoc.uScene, 0);
+        gl.uniform2f(presentLoc.uSceneResolution, sceneWidth, sceneHeight);
+        gl.drawArrays(gl.TRIANGLES, 0, 6);
+        gl.bindTexture(gl.TEXTURE_2D, null);
+        gl.bindVertexArray(null);
+
+        frameCount += 1;
+        if (now - lastFpsTime >= 500) {
+          fps = frameCount * 1000 / (now - lastFpsTime);
+          frameCount = 0;
+          lastFpsTime = now;
+          performanceState.fpsSmooth = performanceState.fpsSmooth * 0.72 + fps * 0.28;
+          updateAdaptiveQuality(now);
+          stats.innerHTML = `<strong>${fps.toFixed(0)} fps</strong><br>${qualityModes[params.quality].label} · ${sceneWidth}×${sceneHeight}<br>steps ${performanceState.effectiveSteps} · scale ${(performanceState.effectiveScale * 100).toFixed(0)}%`;
+        }
+
+        requestAnimationFrame(render);
+      }
+
+      resizeTargets(true);
+      requestAnimationFrame(render);
+    })();
+  </script>
+</body>
+</html>
