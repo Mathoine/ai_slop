@@ -1,0 +1,2819 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>2D Airfoil Wind Tunnel</title>
+    <style>
+      :root {
+        --bg: #0b0f14;
+        --bg2: #121924;
+        --panel: #161f2c;
+        --panel2: #1c2838;
+        --line: #2c3a4f;
+        --line2: #3f5473;
+        --text: #e7eef9;
+        --muted: #9fb0c8;
+        --accent: #63b3ff;
+        --accent2: #4ee0b8;
+        --warn: #ffb347;
+        --bad: #ff6b6b;
+        --good: #53d769;
+        --grid: #202d3d;
+        --shadow: 0 12px 26px rgba(0, 0, 0, 0.28);
+      }
+
+      * {
+        box-sizing: border-box
+      }
+
+      html,
+      body {
+        margin: 0;
+        height: 100%;
+        background: var(--bg);
+        color: var(--text);
+        font: 14px/1.4 Inter, Segoe UI, Roboto, Arial, sans-serif
+      }
+
+      body {
+        overflow: hidden
+      }
+
+      .app {
+        display: grid;
+        grid-template-columns: 360px minmax(0, 1fr);
+        min-height: 100vh;
+        height: 100vh;
+        gap: 0;
+      }
+
+      .sidebar {
+        height: 100vh;
+        overflow: auto;
+        border-right: 1px solid var(--line);
+        background: linear-gradient(180deg, #0f151e 0%, #101824 100%);
+        padding: 14px;
+      }
+
+      .main {
+        min-width: 0;
+        height: 100vh;
+        overflow: auto;
+        background: radial-gradient(circle at top left, #0f1724 0%, #0a1017 45%, #091018 100%);
+      }
+
+      .section {
+        background: linear-gradient(180deg, var(--panel) 0%, var(--panel2) 100%);
+        border: 1px solid var(--line);
+        border-radius: 16px;
+        box-shadow: var(--shadow);
+        padding: 12px;
+        margin-bottom: 12px;
+      }
+
+      .section h2 {
+        margin: 0 0 10px;
+        font-size: 14px;
+        letter-spacing: 0.02em;
+        color: #f4f8ff;
+      }
+
+      .subtle {
+        color: var(--muted);
+        font-size: 12px;
+      }
+
+      .controls {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 10px;
+      }
+
+      .row {
+        display: grid;
+        grid-template-columns: 1fr auto;
+        gap: 8px;
+        align-items: center;
+      }
+
+      .row.inline3 {
+        grid-template-columns: 1fr 86px 86px;
+      }
+
+      .row.inline2 {
+        grid-template-columns: 1fr 110px;
+      }
+
+      .row.compact {
+        gap: 6px;
+      }
+
+      label {
+        color: #d9e5f7;
+        font-size: 12px;
+      }
+
+      input[type="text"],
+      input[type="number"],
+      textarea,
+      select,
+      button {
+        width: 100%;
+        background: #0f1620;
+        color: var(--text);
+        border: 1px solid var(--line2);
+        border-radius: 10px;
+        padding: 8px 10px;
+        outline: none;
+      }
+
+      input[type="range"] {
+        width: 100%;
+        accent-color: var(--accent);
+      }
+
+      textarea {
+        min-height: 112px;
+        resize: vertical;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        font-size: 12px;
+        line-height: 1.35;
+      }
+
+      button {
+        cursor: pointer;
+        background: linear-gradient(180deg, #172233 0%, #122033 100%);
+        transition: 0.16s ease;
+      }
+
+      button:hover {
+        border-color: #5e86be;
+        background: #1b2a3e
+      }
+
+      .button-row {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+      }
+
+      .button-row.three {
+        grid-template-columns: repeat(3, 1fr);
+      }
+
+      .toggles {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+      }
+
+      .toggle {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        padding: 8px 10px;
+        border: 1px solid var(--line2);
+        border-radius: 10px;
+        background: #0f1620;
+      }
+
+      .toggle input {
+        width: auto;
+        margin: 0;
+        transform: scale(1.1);
+      }
+
+      .outputs {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 8px;
+      }
+
+      .metric {
+        background: #0f1620;
+        border: 1px solid var(--line2);
+        border-radius: 12px;
+        padding: 9px 10px;
+      }
+
+      .metric .name {
+        color: var(--muted);
+        font-size: 11px;
+        letter-spacing: 0.03em;
+        text-transform: uppercase;
+      }
+
+      .metric .value {
+        font-size: 18px;
+        font-weight: 700;
+        margin-top: 3px;
+      }
+
+      .metric .unit {
+        color: var(--muted);
+        font-size: 11px;
+      }
+
+      .status {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 10px 12px;
+        border-radius: 12px;
+        border: 1px solid var(--line2);
+        background: #0f1620;
+        margin-top: 10px;
+      }
+
+      .dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        background: var(--accent2);
+        box-shadow: 0 0 12px rgba(78, 224, 184, 0.6);
+      }
+
+      .status.warn .dot {
+        background: var(--warn);
+        box-shadow: 0 0 12px rgba(255, 179, 71, 0.6)
+      }
+
+      .status.bad .dot {
+        background: var(--bad);
+        box-shadow: 0 0 12px rgba(255, 107, 107, 0.6)
+      }
+
+      .header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        gap: 12px;
+        margin-bottom: 10px;
+      }
+
+      .title {
+        font-size: 20px;
+        font-weight: 700;
+        letter-spacing: 0.01em;
+      }
+
+      .toolbar {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+      }
+
+      .toolbar .tag {
+        padding: 6px 10px;
+        border-radius: 999px;
+        background: #0e1724;
+        border: 1px solid var(--line2);
+        color: var(--muted);
+        font-size: 12px;
+        white-space: nowrap;
+      }
+
+      .flow-wrap {
+        position: sticky;
+        top: 0;
+        z-index: 3;
+        min-width: 0;
+        min-height: 0;
+        padding: 12px 12px 6px;
+        background: radial-gradient(circle at top left, rgba(15, 23, 36, 0.98) 0%, rgba(10, 16, 23, 0.98) 45%, rgba(9, 16, 24, 0.98) 100%);
+      }
+
+      .flow-panel {
+        position: relative;
+        width: 100%;
+        height: clamp(440px, 68vh, 760px);
+        min-height: 440px;
+        border: 1px solid var(--line);
+        border-radius: 16px;
+        overflow: hidden;
+        box-shadow: var(--shadow);
+        background: linear-gradient(180deg, rgba(255, 255, 255, 0.02) 0%, rgba(255, 255, 255, 0) 20%), radial-gradient(circle at 20% 10%, rgba(99, 179, 255, 0.08) 0%, rgba(99, 179, 255, 0) 35%), linear-gradient(180deg, #0a1017 0%, #0b121b 100%);
+      }
+
+      canvas {
+        display: block;
+        width: 100%;
+        height: 100%;
+      }
+
+      .flow-overlay {
+        position: absolute;
+        left: 24px;
+        top: 16px;
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+        pointer-events: none;
+        max-width: min(60%, 520px);
+      }
+
+      .flow-side-overlay {
+        position: absolute;
+        right: 24px;
+        top: 16px;
+        width: min(180px, 28%);
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        pointer-events: none;
+      }
+
+      .pill {
+        padding: 6px 10px;
+        border-radius: 999px;
+        background: rgba(8, 12, 19, 0.7);
+        border: 1px solid rgba(120, 150, 190, 0.25);
+        color: #d4e4fb;
+        font-size: 12px;
+        backdrop-filter: blur(6px);
+      }
+
+      .coef-card {
+        background: rgba(8, 12, 19, 0.78);
+        border: 1px solid rgba(120, 150, 190, 0.28);
+        border-radius: 14px;
+        color: #d4e4fb;
+        backdrop-filter: blur(6px);
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.24);
+        overflow: hidden;
+      }
+
+      .coef-card-head {
+        padding: 8px 10px;
+        border-bottom: 1px solid rgba(120, 150, 190, 0.18);
+        font-size: 11px;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: var(--muted);
+      }
+
+      .coef-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+      }
+
+      .coef-item {
+        padding: 10px;
+      }
+
+      .coef-item + .coef-item {
+        border-left: 1px solid rgba(120, 150, 190, 0.12);
+      }
+
+      .coef-label {
+        color: var(--muted);
+        font-size: 11px;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+      }
+
+      .coef-value {
+        margin-top: 3px;
+        font-size: 22px;
+        font-weight: 700;
+        line-height: 1;
+      }
+
+      .coef-sub {
+        margin-top: 2px;
+        color: var(--muted);
+        font-size: 11px;
+      }
+
+      .graphs {
+        min-width: 0;
+        min-height: 0;
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 10px;
+        padding: 6px 12px 12px;
+        border-top: 1px solid var(--line);
+      }
+
+      .graph-card {
+        min-width: 0;
+        min-height: 0;
+        background: linear-gradient(180deg, rgba(22, 31, 44, 0.92) 0%, rgba(17, 24, 35, 0.96) 100%);
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        overflow: hidden;
+        display: grid;
+        grid-template-rows: auto minmax(0, 1fr);
+      }
+
+      .graph-head {
+        padding: 8px 10px;
+        border-bottom: 1px solid var(--line);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+
+      .graph-head .name {
+        font-size: 12px;
+        color: #dbe7f7;
+        font-weight: 600;
+      }
+
+      .legend {
+        display: flex;
+        gap: 10px;
+        font-size: 11px;
+        color: var(--muted);
+        align-items: center;
+        flex-wrap: wrap;
+      }
+
+      .key {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+      }
+
+      .swatch {
+        width: 12px;
+        height: 2px;
+        border-radius: 2px;
+        background: var(--accent);
+      }
+
+      .swatch.green {
+        background: var(--accent2)
+      }
+
+      .swatch.gray {
+        background: #95a5bd
+      }
+
+      .graph-canvas {
+        width: 100%;
+        height: 100%;
+      }
+
+      .smallnote {
+        color: var(--muted);
+        font-size: 11px;
+        margin-top: 8px;
+      }
+
+      .divider {
+        border-top: 1px solid var(--line);
+        margin: 8px 0 0;
+        padding-top: 8px;
+      }
+
+      .hidden {
+        display: none !important
+      }
+
+      .mono {
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace
+      }
+
+      @media (max-width:1300px) {
+        .app {
+          grid-template-columns: 330px 1fr
+        }
+
+        .flow-panel {
+          height: clamp(420px, 64vh, 700px);
+        }
+
+        .flow-side-overlay {
+          width: min(168px, 30%);
+        }
+      }
+
+      @media (max-width:1100px) {
+        body {
+          overflow: auto;
+        }
+
+        .app {
+          grid-template-columns: 1fr;
+          height: auto;
+          min-height: 100vh
+        }
+
+        .sidebar {
+          height: auto;
+          max-height: none;
+          overflow: visible;
+          border-right: none;
+          border-bottom: 1px solid var(--line)
+        }
+
+        .main {
+          height: auto;
+          overflow: visible;
+        }
+
+        .flow-wrap {
+          position: relative;
+          top: auto;
+          padding: 12px;
+        }
+
+        .flow-panel {
+          height: min(64vh, 620px);
+          min-height: 500px;
+        }
+
+        .graphs {
+          grid-template-columns: 1fr;
+          grid-auto-rows: minmax(260px, 320px)
+        }
+
+        .flow-overlay {
+          max-width: calc(100% - 220px);
+        }
+      }
+
+      @media (max-width:720px) {
+        .flow-side-overlay {
+          right: 14px;
+          top: 14px;
+          width: 148px;
+        }
+
+        .flow-overlay {
+          left: 14px;
+          top: 14px;
+          max-width: calc(100% - 180px);
+        }
+
+        .coef-value {
+          font-size: 18px;
+        }
+      }
+    </style>
+  <script type="text/javascript" nonce="571d8f2323c54ab99fed696eae8" src="//local.adguard.org?ts=1774557791182&amp;type=content-script&amp;dmn=chatgpt.com&amp;url=https%3A%2F%2Fchatgpt.com%2Fbackend-api%2Festuary%2Fcontent%3Fid%3Dfile_00000000f970720aad440a286d4186c8%26ts%3D492933%26p%3Dfs%26cid%3D1%26sig%3D62971ae303ade297076bca601132ee87f75fdb527fbeeaf6c7146fb8d8cf6c59%26v%3D0&amp;app=com.apple.Safari&amp;css=2&amp;js=1&amp;rel=1&amp;rji=1&amp;sbe=1&amp;stealth=1&amp;st-wrtc&amp;st-push&amp;st-loc&amp;st-java&amp;st-dnt"></script><script type="text/javascript" nonce="571d8f2323c54ab99fed696eae8" src="//local.adguard.org?ts=1774557791182&amp;name=AdGuard%20Extra&amp;type=user-script"></script></head>
+  <body>
+    <div class="app">
+      <aside class="sidebar">
+        <div class="section">
+          <div class="header" style="margin-bottom:0">
+            <div>
+              <div class="title">2D Airfoil Wind Tunnel</div>
+              <div class="subtle">Potential-flow surface estimate + viscous / stall corrected section model</div>
+            </div>
+          </div>
+        </div>
+        <div class="section">
+          <h2>Airfoil definition</h2>
+          <div class="controls">
+            <div class="row inline2">
+              <label for="presetSelect">Preset</label>
+              <select id="presetSelect">
+                <option value="2412">NACA 2412</option>
+                <option value="0012">NACA 0012</option>
+                <option value="4412">NACA 4412</option>
+                <option value="6409">NACA 6409</option>
+                <option value="custom">Custom points</option>
+              </select>
+            </div>
+            <div class="row inline2">
+              <label for="nacaCode">4-digit NACA code</label>
+              <input id="nacaCode" type="text" value="2412" maxlength="4" spellcheck="false">
+            </div>
+            <div class="button-row">
+              <button id="applyPresetBtn">Apply preset</button>
+              <button id="applyNacaBtn">Apply code</button>
+            </div>
+            <div class="divider">
+              <label>Advanced NACA 4-digit generator</label>
+              <div class="row inline2">
+                <label for="nacaCamberNumber">Max camber (%)</label>
+                <input id="nacaCamberNumber" type="number" min="0" max="9.5" step="0.1" value="2.0">
+              </div>
+              <div class="row inline2">
+                <label for="nacaCamberPosNumber">Max camber position (%)</label>
+                <input id="nacaCamberPosNumber" type="number" min="0" max="90" step="1" value="40">
+              </div>
+              <div class="row inline2">
+                <label for="nacaThicknessNumber">Thickness (%)</label>
+                <input id="nacaThicknessNumber" type="number" min="1" max="40" step="0.1" value="12.0">
+              </div>
+              <div class="row inline2">
+                <label for="nacaPointCountNumber">Generator points</label>
+                <input id="nacaPointCountNumber" type="number" min="20" max="200" step="1" value="80">
+              </div>
+              <div class="row inline2">
+                <label for="nacaSpacingSelect">Point spacing</label>
+                <select id="nacaSpacingSelect">
+                  <option value="cosine">Cosine</option>
+                  <option value="linear">Linear</option>
+                </select>
+              </div>
+              <div class="row inline2">
+                <label for="nacaClosedTeSelect">Trailing edge</label>
+                <select id="nacaClosedTeSelect">
+                  <option value="open">Open TE</option>
+                  <option value="closed">Closed TE</option>
+                </select>
+              </div>
+              <div class="button-row" style="margin-top:8px">
+                <button id="applyNacaFieldsBtn">Apply fields</button>
+                <button id="pasteGeneratedBtn">Paste generated</button>
+              </div>
+              <div class="smallnote">The code field is still available. When you use decimal camber or thickness here, the code is updated to the nearest classic 4-digit equivalent.</div>
+            </div>
+            <div class="divider">
+              <label for="customCoords">Custom contour coordinates (ordered contour, one x y pair per line)</label>
+              <textarea id="customCoords" spellcheck="false" class="mono"></textarea>
+              <div class="button-row" style="margin-top:8px">
+                <button id="loadCustomBtn">Load custom</button>
+                <button id="sampleCustomBtn">Paste current</button>
+              </div>
+              <div class="smallnote">Expected contour order: start near upper trailing edge, move along upper surface to the leading edge, then back along the lower surface to the trailing edge.</div>
+            </div>
+          </div>
+        </div>
+        <div class="section">
+          <h2>Wind tunnel controls</h2>
+          <div class="controls">
+            <div class="row inline3">
+              <label for="chordRange">Chord</label>
+              <input id="chordRange" type="range" min="0.2" max="5" step="0.01" value="1">
+              <input id="chordNumber" type="number" min="0.2" max="5" step="0.01" value="1">
+            </div>
+            <div class="row inline3">
+              <label for="alphaRange">Angle of attack</label>
+              <input id="alphaRange" type="range" min="-20" max="25" step="0.1" value="4">
+              <input id="alphaNumber" type="number" min="-20" max="25" step="0.1" value="4">
+            </div>
+            <div class="row inline3">
+              <label for="velocityRange">Freestream velocity</label>
+              <input id="velocityRange" type="range" min="2" max="120" step="0.5" value="40">
+              <input id="velocityNumber" type="number" min="2" max="120" step="0.5" value="40">
+            </div>
+            <div class="row inline3">
+              <label for="densityRange">Air density</label>
+              <input id="densityRange" type="range" min="0.4" max="1.5" step="0.005" value="1.225">
+              <input id="densityNumber" type="number" min="0.4" max="1.5" step="0.005" value="1.225">
+            </div>
+            <div class="row inline2">
+              <label for="reMode">Reynolds / viscosity input</label>
+              <select id="reMode">
+                <option value="viscosity">Set dynamic viscosity</option>
+                <option value="reynolds">Set Reynolds number</option>
+              </select>
+            </div>
+            <div id="viscosityRow" class="row inline3">
+              <label for="viscosityRange">Dynamic viscosity</label>
+              <input id="viscosityRange" type="range" min="0.000008" max="0.000040" step="0.0000001" value="0.0000181">
+              <input id="viscosityNumber" type="number" min="0.000008" max="0.000040" step="0.0000001" value="0.0000181">
+            </div>
+            <div id="reynoldsRow" class="row inline3 hidden">
+              <label for="reRange">Reynolds number</label>
+              <input id="reRange" type="range" min="50000" max="5000000" step="1000" value="2700000">
+              <input id="reNumber" type="number" min="50000" max="5000000" step="1000" value="2700000">
+            </div>
+            <div class="row inline3">
+              <label for="panelsRange">Surface panels</label>
+              <input id="panelsRange" type="range" min="24" max="160" step="2" value="60">
+              <input id="panelsNumber" type="number" min="24" max="160" step="2" value="60">
+            </div>
+            <div class="row inline2">
+              <label for="flowColsNumber">Pressure / flow columns</label>
+              <input id="flowColsNumber" type="number" min="24" max="240" step="1" value="72">
+            </div>
+            <div class="row inline2">
+              <label for="flowRowsNumber">Pressure / flow rows</label>
+              <input id="flowRowsNumber" type="number" min="16" max="180" step="1" value="32">
+            </div>
+            <div class="row inline2">
+              <label for="tunnelGridStepNumber">Tunnel grid spacing</label>
+              <input id="tunnelGridStepNumber" type="number" min="0.05" max="0.5" step="0.01" value="0.25">
+            </div>
+            <div class="row inline3">
+              <label for="particleRange">Stream / particle density</label>
+              <input id="particleRange" type="range" min="20" max="220" step="1" value="90">
+              <input id="particleNumber" type="number" min="20" max="220" step="1" value="90">
+            </div>
+            <div class="row inline3">
+              <label for="flapRange">Trailing-edge flap</label>
+              <input id="flapRange" type="range" min="-20" max="20" step="0.25" value="0">
+              <input id="flapNumber" type="number" min="-20" max="20" step="0.25" value="0">
+            </div>
+            <div class="button-row three">
+              <button id="resetBtn">Reset</button>
+              <button id="storeRefBtn">Store reference</button>
+              <button id="clearRefBtn">Clear reference</button>
+            </div>
+          </div>
+        </div>
+        <div class="section">
+          <h2>Display layers</h2>
+          <div class="toggles">
+            <div class="toggle">
+              <label for="showPressureField">Pressure field</label>
+              <input id="showPressureField" type="checkbox" checked>
+            </div>
+            <div class="toggle">
+              <label for="showStreamlines">Stream particles</label>
+              <input id="showStreamlines" type="checkbox" checked>
+            </div>
+            <div class="toggle">
+              <label for="showVectors">Velocity vectors</label>
+              <input id="showVectors" type="checkbox">
+            </div>
+            <div class="toggle">
+              <label for="showCpCurve">Cp graph</label>
+              <input id="showCpCurve" type="checkbox" checked>
+            </div>
+            <div class="toggle">
+              <label for="showForces">Force vectors</label>
+              <input id="showForces" type="checkbox" checked>
+            </div>
+            <div class="toggle">
+              <label for="showStagnation">Stagnation points</label>
+              <input id="showStagnation" type="checkbox" checked>
+            </div>
+            <div class="toggle">
+              <label for="showWake">Wake guide</label>
+              <input id="showWake" type="checkbox" checked>
+            </div>
+            <div class="toggle">
+              <label for="pauseAnim">Pause animation</label>
+              <input id="pauseAnim" type="checkbox">
+            </div>
+          </div>
+          <div class="smallnote">Surface pressure and Cp curves come from the attached potential-flow estimate. Section force coefficients include viscous and post-stall correction.</div>
+        </div>
+        <div class="section">
+          <h2>Numerical outputs</h2>
+          <div class="outputs" id="outputs"></div>
+          <div id="statusBox" class="status">
+            <div class="dot"></div>
+            <div>
+              <div id="statusTitle" style="font-weight:700">Attached-flow regime</div>
+              <div id="statusText" class="subtle">Potential-flow surface estimate is within its more reliable range.</div>
+            </div>
+          </div>
+          <div class="smallnote" id="modelNote"></div>
+        </div>
+      </aside>
+      <main class="main">
+        <div class="flow-wrap">
+          <div class="flow-panel">
+            <canvas id="flowCanvas"></canvas>
+            <div class="flow-overlay">
+              <div class="pill" id="flowInfo1">AoA 0.0°</div>
+              <div class="pill" id="flowInfo2">Re 0</div>
+              <div class="pill" id="flowInfo3">q = 0 Pa</div>
+            </div>
+            <div class="flow-side-overlay">
+              <div class="coef-card">
+                <div class="coef-card-head">Current coefficients</div>
+                <div class="coef-grid">
+                  <div class="coef-item">
+                    <div class="coef-label">C_L</div>
+                    <div class="coef-value" id="flowCL">0.000</div>
+                    <div class="coef-sub">lift</div>
+                  </div>
+                  <div class="coef-item">
+                    <div class="coef-label">C_D</div>
+                    <div class="coef-value" id="flowCD">0.000</div>
+                    <div class="coef-sub">drag</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="graphs">
+          <div class="graph-card">
+            <div class="graph-head">
+              <div class="name">Surface pressure coefficient \(C_p\)</div>
+              <div class="legend">
+                <div class="key">
+                  <span class="swatch"></span>Upper
+                </div>
+                <div class="key">
+                  <span class="swatch green"></span>Lower
+                </div>
+                <div class="key">
+                  <span class="swatch gray"></span>Reference
+                </div>
+              </div>
+            </div>
+            <canvas id="cpCanvas" class="graph-canvas"></canvas>
+          </div>
+          <div class="graph-card">
+            <div class="graph-head">
+              <div class="name">Lift curve \(C_L\) vs angle</div>
+              <div class="legend">
+                <div class="key">
+                  <span class="swatch"></span>Corrected polar
+                </div>
+                <div class="key">
+                  <span class="swatch green"></span>Thin-airfoil line
+                </div>
+                <div class="key">
+                  <span class="swatch gray"></span>Reference
+                </div>
+              </div>
+            </div>
+            <canvas id="clAlphaCanvas" class="graph-canvas"></canvas>
+          </div>
+          <div class="graph-card">
+            <div class="graph-head">
+              <div class="name">Drag polar \(C_D\) vs \(C_L\)</div>
+              <div class="legend">
+                <div class="key">
+                  <span class="swatch"></span>Corrected polar
+                </div>
+                <div class="key">
+                  <span class="swatch gray"></span>Reference
+                </div>
+              </div>
+            </div>
+            <canvas id="polarCanvas" class="graph-canvas"></canvas>
+          </div>
+        </div>
+      </main>
+    </div>
+    <script>
+      (() => {
+        "use strict";
+        const TWO_PI = Math.PI * 2;
+        const DEG = Math.PI / 180;
+        const EPS = 1e-9;
+        const state = {
+          preset: "2412",
+          sourceMode: "preset",
+          nacaCode: "2412",
+          nacaCamberPct: 2.0,
+          nacaCamberPosPct: 40,
+          nacaThicknessPct: 12.0,
+          nacaPointCount: 80,
+          nacaSpacing: "cosine",
+          nacaClosedTE: false,
+          customCoords: "",
+          chord: 1.0,
+          alphaDeg: 4.0,
+          velocity: 40.0,
+          density: 1.225,
+          viscosity: 1.81e-5,
+          reynolds: 2700000,
+          reMode: "viscosity",
+          panels: 60,
+          flowFieldCols: 72,
+          flowFieldRows: 32,
+          tunnelGridStep: 0.25,
+          particleDensity: 90,
+          flapDeg: 0,
+          showPressureField: true,
+          showStreamlines: true,
+          showVectors: false,
+          showCpCurve: true,
+          showForces: true,
+          showStagnation: true,
+          showWake: true,
+          pauseAnim: false
+        };
+        const defaults = JSON.parse(JSON.stringify(state));
+        let latest = null;
+        let referenceState = null;
+        let lastSolveSignature = "";
+        let polarSignature = "";
+        let polarCache = null;
+        let solveScheduled = false;
+        const els = {
+          presetSelect: document.getElementById("presetSelect"),
+          nacaCode: document.getElementById("nacaCode"),
+          nacaCamberNumber: document.getElementById("nacaCamberNumber"),
+          nacaCamberPosNumber: document.getElementById("nacaCamberPosNumber"),
+          nacaThicknessNumber: document.getElementById("nacaThicknessNumber"),
+          nacaPointCountNumber: document.getElementById("nacaPointCountNumber"),
+          nacaSpacingSelect: document.getElementById("nacaSpacingSelect"),
+          nacaClosedTeSelect: document.getElementById("nacaClosedTeSelect"),
+          customCoords: document.getElementById("customCoords"),
+          applyPresetBtn: document.getElementById("applyPresetBtn"),
+          applyNacaBtn: document.getElementById("applyNacaBtn"),
+          applyNacaFieldsBtn: document.getElementById("applyNacaFieldsBtn"),
+          pasteGeneratedBtn: document.getElementById("pasteGeneratedBtn"),
+          loadCustomBtn: document.getElementById("loadCustomBtn"),
+          sampleCustomBtn: document.getElementById("sampleCustomBtn"),
+          resetBtn: document.getElementById("resetBtn"),
+          storeRefBtn: document.getElementById("storeRefBtn"),
+          clearRefBtn: document.getElementById("clearRefBtn"),
+          reMode: document.getElementById("reMode"),
+          viscosityRow: document.getElementById("viscosityRow"),
+          reynoldsRow: document.getElementById("reynoldsRow"),
+          flowColsNumber: document.getElementById("flowColsNumber"),
+          flowRowsNumber: document.getElementById("flowRowsNumber"),
+          tunnelGridStepNumber: document.getElementById("tunnelGridStepNumber"),
+          outputs: document.getElementById("outputs"),
+          statusBox: document.getElementById("statusBox"),
+          statusTitle: document.getElementById("statusTitle"),
+          statusText: document.getElementById("statusText"),
+          modelNote: document.getElementById("modelNote"),
+          flowCanvas: document.getElementById("flowCanvas"),
+          cpCanvas: document.getElementById("cpCanvas"),
+          clAlphaCanvas: document.getElementById("clAlphaCanvas"),
+          polarCanvas: document.getElementById("polarCanvas"),
+          flowInfo1: document.getElementById("flowInfo1"),
+          flowInfo2: document.getElementById("flowInfo2"),
+          flowInfo3: document.getElementById("flowInfo3"),
+          flowCL: document.getElementById("flowCL"),
+          flowCD: document.getElementById("flowCD")
+        };
+        const ctxFlow = els.flowCanvas.getContext("2d");
+        const ctxCp = els.cpCanvas.getContext("2d");
+        const ctxClAlpha = els.clAlphaCanvas.getContext("2d");
+        const ctxPolar = els.polarCanvas.getContext("2d");
+        const uiPairs = [];
+
+        function bindPair(rangeId, numberId, key, parser = parseFloat) {
+          const range = document.getElementById(rangeId);
+          const number = document.getElementById(numberId);
+          const sync = (src, dst) => {
+            dst.value = src.value;
+          };
+          const apply = (el) => {
+            const value = parser(el.value);
+            if (!Number.isFinite(value)) return;
+            state[key] = value;
+            sync(el, el === range ? number : range);
+            if (key === "panels") {
+              state.panels = Math.max(24, Math.round(state.panels / 2) * 2);
+              range.value = state.panels;
+              number.value = state.panels;
+            }
+            requestSolve();
+          };
+          range.addEventListener("input", () => apply(range));
+          number.addEventListener("input", () => apply(number));
+          uiPairs.push({
+            range,
+            number,
+            key
+          });
+        }
+        bindPair("chordRange", "chordNumber", "chord");
+        bindPair("alphaRange", "alphaNumber", "alphaDeg");
+        bindPair("velocityRange", "velocityNumber", "velocity");
+        bindPair("densityRange", "densityNumber", "density");
+        bindPair("viscosityRange", "viscosityNumber", "viscosity");
+        bindPair("reRange", "reNumber", "reynolds");
+        bindPair("panelsRange", "panelsNumber", "panels", v => parseInt(v, 10));
+        bindPair("particleRange", "particleNumber", "particleDensity", v => parseInt(v, 10));
+        bindPair("flapRange", "flapNumber", "flapDeg");
+
+        function bindNumberInput(el, key, parser = parseFloat, normalize = v => v) {
+          el.value = state[key];
+          el.addEventListener("input", () => {
+            const raw = parser(el.value);
+            if (!Number.isFinite(raw)) return;
+            state[key] = normalize(raw);
+            el.value = state[key];
+            if (["nacaCamberPct", "nacaCamberPosPct", "nacaThicknessPct", "nacaPointCount"].includes(key)) {
+              state.nacaCode = buildRoundedNacaCode(state);
+              els.nacaCode.value = state.nacaCode;
+              if (state.sourceMode !== "custom") requestSolve();
+              return;
+            }
+            requestSolve();
+          });
+        }
+
+        bindNumberInput(els.nacaCamberNumber, "nacaCamberPct", parseFloat, v => clamp(v, 0, 9.5));
+        bindNumberInput(els.nacaCamberPosNumber, "nacaCamberPosPct", parseFloat, v => clamp(Math.round(v), 0, 90));
+        bindNumberInput(els.nacaThicknessNumber, "nacaThicknessPct", parseFloat, v => clamp(v, 1, 40));
+        bindNumberInput(els.nacaPointCountNumber, "nacaPointCount", v => parseInt(v, 10), v => clamp(Math.round(v), 20, 200));
+        bindNumberInput(els.flowColsNumber, "flowFieldCols", v => parseInt(v, 10), v => clamp(Math.round(v), 24, 240));
+        bindNumberInput(els.flowRowsNumber, "flowFieldRows", v => parseInt(v, 10), v => clamp(Math.round(v), 16, 180));
+        bindNumberInput(els.tunnelGridStepNumber, "tunnelGridStep", parseFloat, v => clamp(v, 0.05, 0.5));
+
+        els.nacaSpacingSelect.value = state.nacaSpacing;
+        els.nacaSpacingSelect.addEventListener("change", () => {
+          state.nacaSpacing = els.nacaSpacingSelect.value === "linear" ? "linear" : "cosine";
+          if (state.sourceMode !== "custom") requestSolve();
+        });
+
+        els.nacaClosedTeSelect.value = state.nacaClosedTE ? "closed" : "open";
+        els.nacaClosedTeSelect.addEventListener("change", () => {
+          state.nacaClosedTE = els.nacaClosedTeSelect.value === "closed";
+          if (state.sourceMode !== "custom") requestSolve();
+        });
+        [
+          ["showPressureField", "showPressureField"],
+          ["showStreamlines", "showStreamlines"],
+          ["showVectors", "showVectors"],
+          ["showCpCurve", "showCpCurve"],
+          ["showForces", "showForces"],
+          ["showStagnation", "showStagnation"],
+          ["showWake", "showWake"],
+          ["pauseAnim", "pauseAnim"]
+        ].forEach(([id, key]) => {
+          const el = document.getElementById(id);
+          el.checked = state[key];
+          el.addEventListener("change", () => {
+            state[key] = el.checked;
+            if (key === "pauseAnim") return;
+            drawAll();
+          });
+        });
+        els.reMode.value = state.reMode;
+        els.reMode.addEventListener("change", () => {
+          state.reMode = els.reMode.value;
+          updateReModeVisibility();
+          if (state.reMode === "reynolds") {
+            state.viscosity = computeViscosityFromRe(state.reynolds, state.density, state.velocity, state.chord);
+            syncPairValue("viscosity", state.viscosity);
+          } else {
+            state.reynolds = computeRe(state.density, state.velocity, state.chord, state.viscosity);
+            syncPairValue("reynolds", state.reynolds);
+          }
+          requestSolve();
+        });
+        els.applyPresetBtn.addEventListener("click", () => {
+          const val = els.presetSelect.value;
+          state.preset = val;
+          if (val === "custom") {
+            state.sourceMode = "custom";
+          } else if (/^\d{4}$/.test(val)) {
+            applyNacaCodeToState(val);
+            state.sourceMode = "naca";
+          } else {
+            state.sourceMode = "preset";
+          }
+          requestSolve();
+        });
+        els.applyNacaBtn.addEventListener("click", () => {
+          const code = els.nacaCode.value.trim();
+          if (!/^\d{4}$/.test(code)) {
+            alert("Use a valid 4-digit NACA code, for example 2412 or 0012.");
+            return;
+          }
+          applyNacaCodeToState(code);
+          state.preset = code;
+          state.sourceMode = "naca";
+          els.presetSelect.value = code;
+          requestSolve();
+        });
+        els.applyNacaFieldsBtn.addEventListener("click", () => {
+          state.nacaCode = buildRoundedNacaCode(state);
+          els.nacaCode.value = state.nacaCode;
+          state.preset = state.nacaCode;
+          state.sourceMode = "naca";
+          if (els.presetSelect.querySelector(`option[value="${state.nacaCode}"]`)) {
+            els.presetSelect.value = state.nacaCode;
+          }
+          requestSolve();
+        });
+        els.pasteGeneratedBtn.addEventListener("click", () => {
+          const pts = buildGeneratedNacaContour(state, true);
+          els.customCoords.value = pts.map(p => `${p.x.toFixed(6)} ${p.y.toFixed(6)}`).join("\n");
+          state.customCoords = els.customCoords.value;
+        });
+        els.loadCustomBtn.addEventListener("click", () => {
+          state.customCoords = els.customCoords.value;
+          state.sourceMode = "custom";
+          els.presetSelect.value = "custom";
+          requestSolve();
+        });
+        els.sampleCustomBtn.addEventListener("click", () => {
+          const pts = buildBaseAirfoilPoints(state, true);
+          els.customCoords.value = pts.map(p => `${p.x.toFixed(6)} ${p.y.toFixed(6)}`).join("\n");
+          state.customCoords = els.customCoords.value;
+        });
+        els.resetBtn.addEventListener("click", () => {
+          Object.assign(state, JSON.parse(JSON.stringify(defaults)));
+          state.sourceMode = "preset";
+          state.preset = "2412";
+          state.nacaCode = "2412";
+          state.customCoords = "";
+          els.presetSelect.value = state.preset;
+          els.nacaCode.value = state.nacaCode;
+          els.nacaCamberNumber.value = state.nacaCamberPct;
+          els.nacaCamberPosNumber.value = state.nacaCamberPosPct;
+          els.nacaThicknessNumber.value = state.nacaThicknessPct;
+          els.nacaPointCountNumber.value = state.nacaPointCount;
+          els.nacaSpacingSelect.value = state.nacaSpacing;
+          els.nacaClosedTeSelect.value = state.nacaClosedTE ? "closed" : "open";
+          els.customCoords.value = state.customCoords;
+          els.reMode.value = state.reMode;
+          els.flowColsNumber.value = state.flowFieldCols;
+          els.flowRowsNumber.value = state.flowFieldRows;
+          els.tunnelGridStepNumber.value = state.tunnelGridStep;
+          ["showPressureField", "showStreamlines", "showVectors", "showCpCurve", "showForces", "showStagnation", "showWake", "pauseAnim"].forEach(id => document.getElementById(id).checked = state[id]);
+          uiPairs.forEach(pair => {
+            pair.range.value = state[pair.key];
+            pair.number.value = state[pair.key];
+          });
+          updateReModeVisibility();
+          requestSolve(true);
+        });
+        els.storeRefBtn.addEventListener("click", () => {
+          if (!latest) return;
+          referenceState = {
+            alphaDeg: state.alphaDeg,
+            CL: latest.section.CL,
+            CD: latest.section.CD,
+            CM: latest.section.CM,
+            cpUpper: latest.cp.upper.map(p => ({
+              x: p.x,
+              cp: p.cp
+            })),
+            cpLower: latest.cp.lower.map(p => ({
+              x: p.x,
+              cp: p.cp
+            })),
+            label: `${formatNumber(state.alphaDeg, 1)}°`,
+            point: {
+              alpha: state.alphaDeg,
+              CL: latest.section.CL,
+              CD: latest.section.CD
+            }
+          };
+          drawAll();
+        });
+        els.clearRefBtn.addEventListener("click", () => {
+          referenceState = null;
+          drawAll();
+        });
+        els.presetSelect.value = state.preset;
+        els.nacaCode.value = state.nacaCode;
+        els.nacaCamberNumber.value = state.nacaCamberPct;
+        els.nacaCamberPosNumber.value = state.nacaCamberPosPct;
+        els.nacaThicknessNumber.value = state.nacaThicknessPct;
+        els.nacaPointCountNumber.value = state.nacaPointCount;
+        els.nacaSpacingSelect.value = state.nacaSpacing;
+        els.nacaClosedTeSelect.value = state.nacaClosedTE ? "closed" : "open";
+        els.customCoords.value = state.customCoords;
+        els.flowColsNumber.value = state.flowFieldCols;
+        els.flowRowsNumber.value = state.flowFieldRows;
+        els.tunnelGridStepNumber.value = state.tunnelGridStep;
+        updateReModeVisibility();
+
+        function syncPairValue(key, value) {
+          const pair = uiPairs.find(p => p.key === key);
+          if (!pair) return;
+          pair.range.value = value;
+          pair.number.value = value;
+        }
+
+        function updateReModeVisibility() {
+          const reynoldsMode = state.reMode === "reynolds";
+          els.viscosityRow.classList.toggle("hidden", reynoldsMode);
+          els.reynoldsRow.classList.toggle("hidden", !reynoldsMode);
+        }
+
+        function computeRe(rho, velocity, chord, mu) {
+          return Math.max(1, rho * velocity * chord / Math.max(mu, 1e-9));
+        }
+
+        function computeViscosityFromRe(re, rho, velocity, chord) {
+          return Math.max(1e-9, rho * velocity * chord / Math.max(re, 1));
+        }
+
+        function clamp(v, a, b) {
+          return Math.max(a, Math.min(b, v));
+        }
+
+        function lerp(a, b, t) {
+          return a + (b - a) * t;
+        }
+
+        function smoothstep(a, b, x) {
+          if (a === b) return x < a ? 0 : 1;
+          const t = clamp((x - a) / (b - a), 0, 1);
+          return t * t * (3 - 2 * t);
+        }
+
+        function hypot2(x, y) {
+          return Math.sqrt(x * x + y * y);
+        }
+
+        function signedArea(points) {
+          let area = 0;
+          for (let i = 0; i < points.length; i++) {
+            const a = points[i];
+            const b = points[(i + 1) % points.length];
+            area += a.x * b.y - b.x * a.y;
+          }
+          return 0.5 * area;
+        }
+
+        function rotatePoint(p, angleRad, origin = {
+          x: 0,
+          y: 0
+        }) {
+          const c = Math.cos(angleRad),
+            s = Math.sin(angleRad);
+          const x = p.x - origin.x,
+            y = p.y - origin.y;
+          return {
+            x: origin.x + x * c - y * s,
+            y: origin.y + x * s + y * c
+          };
+        }
+
+        function translatePoints(points, dx, dy) {
+          return points.map(p => ({
+            x: p.x + dx,
+            y: p.y + dy
+          }));
+        }
+
+        function pointInPolygon(point, poly) {
+          let inside = false;
+          for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+            const xi = poly[i].x,
+              yi = poly[i].y;
+            const xj = poly[j].x,
+              yj = poly[j].y;
+            const intersect = ((yi > point.y) !== (yj > point.y)) && (point.x < (xj - xi) * (point.y - yi) / ((yj - yi) || EPS) + xi);
+            if (intersect) inside = !inside;
+          }
+          return inside;
+        }
+
+        function resamplePolylineClosed(points, panelCount) {
+          const clean = [];
+          for (let i = 0; i < points.length; i++) {
+            const p = points[i];
+            if (!Number.isFinite(p.x) || !Number.isFinite(p.y)) continue;
+            const last = clean[clean.length - 1];
+            if (!last || hypot2(p.x - last.x, p.y - last.y) > 1e-8) clean.push({
+              x: p.x,
+              y: p.y
+            });
+          }
+          if (clean.length < 3) throw new Error("Not enough valid points.");
+          const pts = clean.slice();
+          if (hypot2(pts[0].x - pts[pts.length - 1].x, pts[0].y - pts[pts.length - 1].y) > 1e-8) {
+            pts.push({
+              ...pts[0]
+            });
+          }
+          const segLen = [];
+          let total = 0;
+          for (let i = 0; i < pts.length - 1; i++) {
+            const dx = pts[i + 1].x - pts[i].x;
+            const dy = pts[i + 1].y - pts[i].y;
+            const s = Math.sqrt(dx * dx + dy * dy);
+            segLen.push(s);
+            total += s;
+          }
+          const out = [];
+          for (let k = 0; k < panelCount; k++) {
+            const dist = (k / panelCount) * total;
+            let acc = 0,
+              idx = 0;
+            while (idx < segLen.length - 1 && acc + segLen[idx] < dist) {
+              acc += segLen[idx++];
+            }
+            const t = segLen[idx] > 0 ? (dist - acc) / segLen[idx] : 0;
+            const a = pts[idx],
+              b = pts[idx + 1];
+            out.push({
+              x: lerp(a.x, b.x, t),
+              y: lerp(a.y, b.y, t)
+            });
+          }
+          return out;
+        }
+
+        function normalizeAndOrientContour(points) {
+          let pts = points.map(p => ({
+            x: p.x,
+            y: p.y
+          }));
+          while (pts.length > 2 && hypot2(pts[0].x - pts[pts.length - 1].x, pts[0].y - pts[pts.length - 1].y) < 1e-8) {
+            pts.pop();
+          }
+          const maxX = Math.max(...pts.map(p => p.x));
+          let startIdx = 0;
+          let bestY = -Infinity;
+          pts.forEach((p, i) => {
+            if (p.x > maxX - 0.02 && p.y > bestY) {
+              bestY = p.y;
+              startIdx = i;
+            }
+          });
+          pts = pts.slice(startIdx).concat(pts.slice(0, startIdx));
+          const next = pts[1];
+          const prev = pts[pts.length - 1];
+          if (next && prev && next.x > prev.x) pts.reverse();
+          const area = signedArea(pts);
+          if (area < 0) pts.reverse();
+          const maxX2 = Math.max(...pts.map(p => p.x));
+          startIdx = 0;
+          bestY = -Infinity;
+          pts.forEach((p, i) => {
+            if (p.x > maxX2 - 0.02 && p.y > bestY) {
+              bestY = p.y;
+              startIdx = i;
+            }
+          });
+          pts = pts.slice(startIdx).concat(pts.slice(0, startIdx));
+          const leIdx = pts.reduce((best, p, i) => p.x < pts[best].x ? i : best, 0);
+          const teUpper = pts[0];
+          const teLower = pts[pts.length - 1];
+          const xLE = pts[leIdx].x;
+          const xTE = 0.5 * (teUpper.x + teLower.x);
+          const chord = Math.max(1e-6, xTE - xLE);
+          const yShift = 0.5 * (teUpper.y + teLower.y);
+          pts = pts.map(p => ({
+            x: (p.x - xLE) / chord,
+            y: (p.y - yShift) / chord
+          }));
+          return pts;
+        }
+
+        function parseCustomCoordinates(text) {
+          const lines = text.split(/\r?\n/);
+          const pts = [];
+          for (const line of lines) {
+            const cleaned = line.trim();
+            if (!cleaned) continue;
+            const parts = cleaned.split(/[\s,;]+/).map(Number);
+            if (parts.length >= 2 && Number.isFinite(parts[0]) && Number.isFinite(parts[1])) {
+              pts.push({
+                x: parts[0],
+                y: parts[1]
+              });
+            }
+          }
+          if (pts.length < 5) throw new Error("Custom airfoil needs at least 5 points.");
+          return normalizeAndOrientContour(pts);
+        }
+
+        function buildRoundedNacaCode(currentState) {
+          const m = clamp(Math.round(currentState.nacaCamberPct), 0, 9);
+          const p = clamp(Math.round(currentState.nacaCamberPosPct / 10), 0, 9);
+          const t = clamp(Math.round(currentState.nacaThicknessPct), 1, 40);
+          return `${m}${p}${String(t).padStart(2, "0")}`;
+        }
+
+        function applyNacaCodeToState(code) {
+          if (!/^\d{4}$/.test(code)) throw new Error("NACA code must be exactly 4 digits.");
+          state.nacaCode = code;
+          state.nacaCamberPct = parseInt(code[0], 10);
+          state.nacaCamberPosPct = parseInt(code[1], 10) * 10;
+          state.nacaThicknessPct = parseInt(code.slice(2), 10);
+          els.nacaCode.value = state.nacaCode;
+          els.nacaCamberNumber.value = state.nacaCamberPct;
+          els.nacaCamberPosNumber.value = state.nacaCamberPosPct;
+          els.nacaThicknessNumber.value = state.nacaThicknessPct;
+        }
+
+        function generateNaca4FromParams(options) {
+          const m = clamp(options.maxCamberPct ?? 0, 0, 9.5) / 100;
+          const p = clamp(options.maxCamberPosPct ?? 0, 0, 90) / 100;
+          const t = clamp(options.thicknessPct ?? 12, 1, 40) / 100;
+          const pointCount = clamp(Math.round(options.pointCount ?? 80), 20, 200);
+          const spacing = options.spacing === "linear" ? "linear" : "cosine";
+          const closeTE = !!options.closedTE;
+          const trailingCoeff = closeTE ? -0.1036 : -0.1015;
+          const half = Math.max(10, Math.ceil(pointCount / 2));
+          const xs = [];
+          for (let i = 0; i <= half; i++) {
+            const u = i / half;
+            xs.push(spacing === "linear" ? u : 0.5 * (1 - Math.cos(Math.PI * u)));
+          }
+          const upper = [];
+          const lower = [];
+          for (const x of xs) {
+            const yt = 5 * t * (0.2969 * Math.sqrt(Math.max(x, 0)) - 0.1260 * x - 0.3516 * x * x + 0.2843 * x * x * x + trailingCoeff * x * x * x * x);
+            let yc = 0;
+            let dyc = 0;
+            if (m > 0 && p > 1e-9) {
+              if (x < p) {
+                yc = (m / (p * p)) * (2 * p * x - x * x);
+                dyc = (2 * m / (p * p)) * (p - x);
+              } else if (p < 1) {
+                yc = (m / Math.pow(1 - p, 2)) * ((1 - 2 * p) + 2 * p * x - x * x);
+                dyc = (2 * m / Math.pow(1 - p, 2)) * (p - x);
+              }
+            }
+            const theta = Math.atan(dyc);
+            upper.push({ x: x - yt * Math.sin(theta), y: yc + yt * Math.cos(theta) });
+            lower.push({ x: x + yt * Math.sin(theta), y: yc - yt * Math.cos(theta) });
+          }
+          const contour = upper.slice().reverse().concat(lower.slice(1));
+          return normalizeAndOrientContour(contour);
+        }
+
+        function buildGeneratedNacaContour(currentState, skipFlap = false) {
+          let pts = generateNaca4FromParams({
+            maxCamberPct: currentState.nacaCamberPct,
+            maxCamberPosPct: currentState.nacaCamberPosPct,
+            thicknessPct: currentState.nacaThicknessPct,
+            pointCount: currentState.nacaPointCount,
+            spacing: currentState.nacaSpacing,
+            closedTE: currentState.nacaClosedTE
+          });
+          if (!skipFlap) pts = applyFlap(pts, currentState.flapDeg, 0.75);
+          return pts;
+        }
+
+        function applyFlap(points, flapDeg, hingeX = 0.75) {
+          if (Math.abs(flapDeg) < 1e-6) return points.map(p => ({
+            ...p
+          }));
+          const angle = -flapDeg * DEG;
+          const hinge = {
+            x: hingeX,
+            y: 0
+          };
+          return points.map(p => (p.x <= hingeX ? {
+            ...p
+          } : rotatePoint(p, angle, hinge)));
+        }
+
+        function buildBaseAirfoilPoints(currentState, skipFlap = false) {
+          const rawPanels = Math.max(24, currentState.panels);
+          let pts;
+          if (currentState.sourceMode === "custom") {
+            pts = parseCustomCoordinates(currentState.customCoords || els.customCoords.value || "");
+            pts = resamplePolylineClosed(pts, rawPanels);
+            pts = normalizeAndOrientContour(pts);
+            if (!skipFlap) pts = applyFlap(pts, currentState.flapDeg, 0.75);
+            return pts;
+          }
+          pts = buildGeneratedNacaContour(currentState, skipFlap);
+          const targetCount = Math.max(rawPanels, Math.min(currentState.nacaPointCount, 200));
+          pts = resamplePolylineClosed(pts, targetCount);
+          pts = normalizeAndOrientContour(pts);
+          if (targetCount !== rawPanels) {
+            pts = resamplePolylineClosed(pts, rawPanels);
+            pts = normalizeAndOrientContour(pts);
+          }
+          return pts;
+        }
+
+        function splitUpperLower(contour) {
+          const pts = contour.slice();
+          const leIdx = pts.reduce((best, p, i) => p.x < pts[best].x ? i : best, 0);
+          const upper = pts.slice(0, leIdx + 1).reverse();
+          const lower = pts.slice(leIdx);
+          return {
+            upper,
+            lower,
+            leIdx
+          };
+        }
+
+        function interpolateSeries(points, x) {
+          if (points.length < 2) return 0;
+          if (x <= points[0].x) return points[0].y;
+          if (x >= points[points.length - 1].x) return points[points.length - 1].y;
+          let lo = 0,
+            hi = points.length - 1;
+          while (hi - lo > 1) {
+            const mid = (lo + hi) >> 1;
+            if (points[mid].x < x) lo = mid;
+            else hi = mid;
+          }
+          const a = points[lo],
+            b = points[hi];
+          const t = (x - a.x) / Math.max(b.x - a.x, EPS);
+          return lerp(a.y, b.y, t);
+        }
+
+        function buildAirfoilProperties(contour) {
+          const split = splitUpperLower(contour);
+          const sampleN = 220;
+          const upperSeries = split.upper.map(p => ({
+            x: p.x,
+            y: p.y
+          })).sort((a, b) => a.x - b.x);
+          const lowerSeries = split.lower.map(p => ({
+            x: p.x,
+            y: p.y
+          })).sort((a, b) => a.x - b.x);
+          let maxThickness = 0,
+            maxCamber = 0,
+            surfaceLength = 0;
+          const camberSamples = [];
+          for (let i = 0; i <= sampleN; i++) {
+            const x = i / sampleN;
+            const yu = interpolateSeries(upperSeries, x);
+            const yl = interpolateSeries(lowerSeries, x);
+            const yc = 0.5 * (yu + yl);
+            maxThickness = Math.max(maxThickness, yu - yl);
+            maxCamber = Math.max(maxCamber, Math.abs(yc));
+            camberSamples.push({
+              x,
+              y: yc
+            });
+          }
+          for (let i = 0; i < contour.length; i++) {
+            const a = contour[i],
+              b = contour[(i + 1) % contour.length];
+            surfaceLength += hypot2(b.x - a.x, b.y - a.y);
+          }
+          return {
+            split,
+            upperSeries,
+            lowerSeries,
+            camberSamples,
+            thickness: maxThickness,
+            maxCamber,
+            surfaceLength
+          };
+        }
+
+        function buildCamberLineModel(props, alphaDeg) {
+          const N = 48;
+          const xs = [];
+          for (let i = 0; i <= N; i++) {
+            const beta = i / N * Math.PI;
+            xs.push(0.5 * (1 - Math.cos(beta)));
+          }
+          const camber = xs.map(x => ({
+            x,
+            y: 0.5 * (interpolateSeries(props.upperSeries, x) + interpolateSeries(props.lowerSeries, x))
+          }));
+
+          function camberY(x) {
+            return interpolateSeries(camber, x);
+          }
+
+          function camberSlope(x) {
+            const dx = 1e-3;
+            return (camberY(clamp(x + dx, 0, 1)) - camberY(clamp(x - dx, 0, 1))) / (2 * dx);
+          }
+          const vortices = [];
+          const collocs = [];
+          for (let i = 0; i < N; i++) {
+            const x0 = xs[i];
+            const x1 = xs[i + 1];
+            const dx = x1 - x0;
+            const xv = x0 + 0.25 * dx;
+            const xc = x0 + 0.75 * dx;
+            vortices.push({
+              x: xv,
+              y: camberY(xv)
+            });
+            const slope = camberSlope(xc);
+            const nx = -slope;
+            const ny = 1;
+            const nmag = Math.sqrt(nx * nx + ny * ny);
+            collocs.push({
+              x: xc,
+              y: camberY(xc),
+              nx: nx / nmag,
+              ny: ny / nmag,
+              dx
+            });
+          }
+          const alpha = alphaDeg * DEG;
+          const Vx = Math.cos(alpha);
+          const Vy = Math.sin(alpha);
+          const A = Array.from({
+            length: N
+          }, () => new Float64Array(N));
+          const b = new Float64Array(N);
+          for (let i = 0; i < N; i++) {
+            const c = collocs[i];
+            b[i] = -(Vx * c.nx + Vy * c.ny);
+            for (let j = 0; j < N; j++) {
+              const v = vortices[j];
+              const dx = c.x - v.x;
+              const dy = c.y - v.y;
+              const r2 = Math.max(dx * dx + dy * dy, 1e-10);
+              const ux = -dy / (TWO_PI * r2);
+              const uy = dx / (TWO_PI * r2);
+              A[i][j] = ux * c.nx + uy * c.ny;
+            }
+          }
+          const gamma = solveLinearSystem(A, b);
+          let GammaTotal = 0;
+          let CmC4 = 0;
+          for (let i = 0; i < N; i++) {
+            const g = gamma[i];
+            GammaTotal += g;
+            const dCL = 2 * g;
+            const fx = dCL * (-Math.sin(alpha));
+            const fy = dCL * (Math.cos(alpha));
+            const rx = vortices[i].x - 0.25;
+            const ry = vortices[i].y;
+            CmC4 += rx * fy - ry * fx;
+          }
+          const CL = 2 * GammaTotal;
+          return {
+            alphaDeg,
+            alphaRad: alpha,
+            gamma: Array.from(gamma),
+            vortices,
+            collocs,
+            CL,
+            CMc4: CmC4
+          };
+        }
+
+        function estimateSectionModel(baseContour, props, currentState) {
+          const attached = buildCamberLineModel(props, currentState.alphaDeg);
+          const re = currentState.reMode === "reynolds" ? currentState.reynolds : computeRe(currentState.density, currentState.velocity, currentState.chord, currentState.viscosity);
+          const miniAngles = [-5, -2.5, 0, 2.5, 5];
+          const mini = miniAngles.map(a => buildCamberLineModel(props, a).CL);
+          const linearFit = linearRegression(miniAngles.map(a => a * DEG), mini);
+          const alpha0 = (-linearFit.intercept / Math.max(Math.abs(linearFit.slope), 1e-9)) / DEG;
+          const tc = props.thickness;
+          const mc = props.maxCamber;
+          const reFactor = Math.log10(clamp(re, 5e4, 5e6) / 3e5);
+          const stallPos = alpha0 + clamp(12.2 + 1.8 * reFactor + 18 * (tc - 0.12) - 28 * Math.max(0, mc), 8.5, 18.0);
+          const stallNeg = alpha0 - clamp(12.0 + 1.8 * reFactor + 18 * (tc - 0.12) + 12 * Math.max(0, mc), 8.5, 18.0);
+          const alpha = currentState.alphaDeg * DEG;
+          const alphaRelPos = currentState.alphaDeg - alpha0;
+          const sep = alphaRelPos >= 0 ? smoothstep((stallPos - alpha0) - 2.0, (stallPos - alpha0) + 6.0, alphaRelPos) : smoothstep((alpha0 - stallNeg) - 2.0, (alpha0 - stallNeg) + 6.0, -alphaRelPos);
+          const logRe = Math.log10(clamp(re, 1e4, 5e7));
+          const cfLam = 1.328 / Math.sqrt(Math.max(re, 1e4));
+          const cfTurb = Math.max(0.0015, 0.455 / Math.pow(logRe, 2.58));
+          const turbMix = smoothstep(2e5, 1.2e6, re);
+          const cf = lerp(cfLam, cfTurb, turbMix);
+          const formFactor = 1 + 2.2 * tc + 60 * Math.pow(tc, 4);
+          const cdSkin = cf * props.surfaceLength * formFactor;
+          const dragBucket = 0.0045 * Math.pow(attached.CL - (0.8 * -linearFit.intercept), 2);
+          const anglePenalty = 0.002 * Math.pow(Math.abs(alphaRelPos) / 8, 2);
+          const cdAttached = cdSkin + dragBucket + anglePenalty;
+          const clSeparated = 2 * Math.sin(alpha) * Math.cos(alpha);
+          const cdSeparated = 2 * Math.pow(Math.sin(alpha), 2) + cdSkin + 0.02;
+          const cmSeparated = 0;
+          const CL = lerp(attached.CL, clSeparated, sep);
+          const CD = lerp(cdAttached, cdSeparated, Math.min(1, sep * 0.92));
+          const CM = lerp(attached.CMc4, cmSeparated, sep);
+          const q = 0.5 * currentState.density * currentState.velocity * currentState.velocity;
+          const lift = q * currentState.chord * CL;
+          const drag = q * currentState.chord * CD;
+          const gamma = 0.5 * currentState.velocity * currentState.chord * CL;
+          const CN = CL * Math.cos(alpha) + CD * Math.sin(alpha);
+          const CmLE = CM + 0.25 * CN;
+          const xcp = Math.abs(CN) > 1e-7 ? clamp(-CmLE / CN, -2, 3) : NaN;
+          const LD = Math.abs(CD) > 1e-8 ? CL / CD : NaN;
+          let regimeTitle = "Attached-flow regime";
+          let regimeText = "Potential-flow surface estimate is within its more reliable range.";
+          let regimeClass = "";
+          if (sep > 0.25 && sep < 0.7) {
+            regimeTitle = "Approaching stall";
+            regimeText = "Viscous / separation correction is becoming significant. Treat pressure details cautiously.";
+            regimeClass = "warn";
+          } else if (sep >= 0.7) {
+            regimeTitle = "Stalled / separated";
+            regimeText = "Post-stall blending is dominant. Surface Cp remains an attached-flow estimate and is no longer a full section description.";
+            regimeClass = "bad";
+          }
+          return {
+            re,
+            q,
+            alpha0,
+            slopePerRad: linearFit.slope,
+            CL,
+            CD,
+            CM,
+            lift,
+            drag,
+            gamma,
+            xcp,
+            LD,
+            stallPos,
+            stallNeg,
+            sep,
+            attached,
+            regimeTitle,
+            regimeText,
+            regimeClass,
+            modelNote: `Attached coefficients come from a discrete-vortex camber-line model. Surface Cp uses a thickness-aware potential-flow estimate. Drag and post-stall behavior are estimated, not CFD.`
+          };
+        }
+
+        function linearRegression(xs, ys) {
+          let sx = 0,
+            sy = 0,
+            sxx = 0,
+            sxy = 0;
+          const n = xs.length;
+          for (let i = 0; i < n; i++) {
+            sx += xs[i];
+            sy += ys[i];
+            sxx += xs[i] * xs[i];
+            sxy += xs[i] * ys[i];
+          }
+          const denom = n * sxx - sx * sx || 1;
+          const slope = (n * sxy - sx * sy) / denom;
+          const intercept = (sy - slope * sx) / n;
+          return {
+            slope,
+            intercept
+          };
+        }
+
+        function buildPanelGeometry(renderContour, bodyContour, alphaDeg) {
+          const rotated = renderContour.map(p => rotatePoint(p, alphaDeg * DEG));
+          const bodyRotated = bodyContour.map(p => rotatePoint(p, alphaDeg * DEG));
+          const panels = [];
+          const area = signedArea(rotated);
+          for (let i = 0; i < rotated.length; i++) {
+            const a = rotated[i];
+            const b = rotated[(i + 1) % rotated.length];
+            const ab = bodyContour[(i + 1) % bodyContour.length];
+            const aa = bodyContour[i];
+            const dx = b.x - a.x;
+            const dy = b.y - a.y;
+            const S = Math.sqrt(dx * dx + dy * dy);
+            if (S < 1e-10) continue;
+            const tx = dx / S;
+            const ty = dy / S;
+            const nx = area > 0 ? ty : -ty;
+            const ny = area > 0 ? -tx : tx;
+            const cx = 0.5 * (a.x + b.x);
+            const cy = 0.5 * (a.y + b.y);
+            const bx = 0.5 * (aa.x + ab.x);
+            const by = 0.5 * (aa.y + ab.y);
+            panels.push({
+              a,
+              b,
+              S,
+              tx,
+              ty,
+              nx,
+              ny,
+              cx,
+              cy,
+              bx,
+              by,
+              phi: Math.atan2(dy, dx)
+            });
+          }
+          return {
+            rotated,
+            bodyRotated,
+            panels
+          };
+        }
+
+        function sourcePanelVelocity(panel, px, py) {
+          const c = Math.cos(panel.phi),
+            s = Math.sin(panel.phi);
+          const dx = px - panel.a.x;
+          const dy = py - panel.a.y;
+          const xl = dx * c + dy * s;
+          const yl = -dx * s + dy * c;
+          const r1 = Math.sqrt(xl * xl + yl * yl) + 1e-12;
+          const r2 = Math.sqrt((xl - panel.S) * (xl - panel.S) + yl * yl) + 1e-12;
+          const t1 = Math.atan2(yl, xl);
+          const t2 = Math.atan2(yl, xl - panel.S);
+          const ul = (1 / TWO_PI) * Math.log(r1 / r2);
+          const vl = (1 / TWO_PI) * (t2 - t1);
+          return {
+            x: ul * c - vl * s,
+            y: ul * s + vl * c
+          };
+        }
+
+        function vortexPanelVelocity(panel, px, py) {
+          const c = Math.cos(panel.phi),
+            s = Math.sin(panel.phi);
+          const dx = px - panel.a.x;
+          const dy = py - panel.a.y;
+          const xl = dx * c + dy * s;
+          const yl = -dx * s + dy * c;
+          const r1 = Math.sqrt(xl * xl + yl * yl) + 1e-12;
+          const r2 = Math.sqrt((xl - panel.S) * (xl - panel.S) + yl * yl) + 1e-12;
+          const t1 = Math.atan2(yl, xl);
+          const t2 = Math.atan2(yl, xl - panel.S);
+          const ul = (1 / TWO_PI) * (t2 - t1);
+          const vl = -(1 / TWO_PI) * Math.log(r1 / r2);
+          return {
+            x: ul * c - vl * s,
+            y: ul * s + vl * c
+          };
+        }
+
+        function solvePotentialSurface(renderContour, bodyContour, alphaDeg) {
+          const geom = buildPanelGeometry(renderContour, bodyContour, alphaDeg);
+          const panels = geom.panels;
+          const n = panels.length;
+          const A = Array.from({
+            length: n + 1
+          }, () => new Float64Array(n + 1));
+          const b = new Float64Array(n + 1);
+          for (let i = 0; i < n; i++) {
+            const pi = panels[i];
+            const px = pi.cx + pi.nx * 1e-6;
+            const py = pi.cy + pi.ny * 1e-6;
+            for (let j = 0; j < n; j++) {
+              const sj = sourcePanelVelocity(panels[j], px, py);
+              const vj = vortexPanelVelocity(panels[j], px, py);
+              A[i][j] = sj.x * pi.nx + sj.y * pi.ny;
+              A[i][n] += vj.x * pi.nx + vj.y * pi.ny;
+            }
+            b[i] = -pi.nx;
+          }
+          const upperTE = 0;
+          const lowerTE = n - 1;
+          [upperTE, lowerTE].forEach(idx => {
+            const pi = panels[idx];
+            const px = pi.cx + pi.nx * 1e-6;
+            const py = pi.cy + pi.ny * 1e-6;
+            for (let j = 0; j < n; j++) {
+              const sj = sourcePanelVelocity(panels[j], px, py);
+              const vj = vortexPanelVelocity(panels[j], px, py);
+              A[n][j] += sj.x * pi.tx + sj.y * pi.ty;
+              A[n][n] += vj.x * pi.tx + vj.y * pi.ty;
+            }
+            b[n] += -pi.tx;
+          });
+          A[n][n] += 1.0;
+          const x = solveLinearSystem(A, b);
+          const sigma = x.slice(0, n);
+          const gamma = x[n];
+          const cp = [];
+          let stagnationUpper = null;
+          let stagnationLower = null;
+          for (let i = 0; i < n; i++) {
+            const pi = panels[i];
+            const px = pi.cx + pi.nx * 1e-6;
+            const py = pi.cy + pi.ny * 1e-6;
+            let u = 1,
+              v = 0;
+            for (let j = 0; j < n; j++) {
+              const sj = sourcePanelVelocity(panels[j], px, py);
+              const vv = vortexPanelVelocity(panels[j], px, py);
+              u += sigma[j] * sj.x + gamma * vv.x;
+              v += sigma[j] * sj.y + gamma * vv.y;
+            }
+            const vt = u * pi.tx + v * pi.ty + 0.5 * gamma;
+            const cpVal = 1 - vt * vt;
+            cp.push({
+              x: pi.bx + 0.25,
+              y: pi.by,
+              cp: cpVal,
+              vt,
+              panel: pi
+            });
+            if (i === 0 || i < Math.floor(n / 2)) {
+              if (!stagnationUpper || Math.abs(vt) < Math.abs(stagnationUpper.vt)) stagnationUpper = {
+                x: pi.cx,
+                y: pi.cy,
+                vt
+              };
+            } else {
+              if (!stagnationLower || Math.abs(vt) < Math.abs(stagnationLower.vt)) stagnationLower = {
+                x: pi.cx,
+                y: pi.cy,
+                vt
+              };
+            }
+          }
+          return {
+            panels,
+            sigma,
+            gamma,
+            cp,
+            rotatedContour: geom.rotated,
+            rotatedBodyContour: geom.bodyRotated,
+            stagnationUpper,
+            stagnationLower
+          };
+        }
+
+        function solveLinearSystem(A, b) {
+          const n = b.length;
+          const M = Array.from({
+            length: n
+          }, (_, i) => Float64Array.from(A[i]));
+          const x = Float64Array.from(b);
+          for (let k = 0; k < n; k++) {
+            let pivot = k;
+            let maxVal = Math.abs(M[k][k]);
+            for (let i = k + 1; i < n; i++) {
+              const val = Math.abs(M[i][k]);
+              if (val > maxVal) {
+                maxVal = val;
+                pivot = i;
+              }
+            }
+            if (maxVal < 1e-14) continue;
+            if (pivot !== k) {
+              const tmpRow = M[k];
+              M[k] = M[pivot];
+              M[pivot] = tmpRow;
+              const tmp = x[k];
+              x[k] = x[pivot];
+              x[pivot] = tmp;
+            }
+            const diag = M[k][k];
+            for (let j = k; j < n; j++) M[k][j] /= diag;
+            x[k] /= diag;
+            for (let i = 0; i < n; i++) {
+              if (i === k) continue;
+              const factor = M[i][k];
+              if (Math.abs(factor) < 1e-16) continue;
+              for (let j = k; j < n; j++) M[i][j] -= factor * M[k][j];
+              x[i] -= factor * x[k];
+            }
+          }
+          return Array.from(x);
+        }
+
+        function buildCpSeries(contour, cpRaw) {
+          const leIdx = contour.reduce((best, p, i) => p.x < contour[best].x ? i : best, 0);
+          const upper = cpRaw.slice(0, leIdx).map(p => ({
+            x: p.x,
+            cp: p.cp
+          })).reverse();
+          const lower = cpRaw.slice(leIdx).map(p => ({
+            x: p.x,
+            cp: p.cp
+          }));
+          return {
+            upper,
+            lower
+          };
+        }
+
+        function computeMeanDeltaCp(series) {
+          const sampleN = 80;
+          let acc = 0;
+          for (let i = 0; i <= sampleN; i++) {
+            const x = i / sampleN;
+            const cpu = interpolateCp(series.upper, x);
+            const cpl = interpolateCp(series.lower, x);
+            acc += (cpl - cpu);
+          }
+          return acc / (sampleN + 1);
+        }
+
+        function interpolateCp(arr, x) {
+          if (!arr || arr.length < 2) return 0;
+          if (x <= arr[0].x) return arr[0].cp;
+          if (x >= arr[arr.length - 1].x) return arr[arr.length - 1].cp;
+          let lo = 0,
+            hi = arr.length - 1;
+          while (hi - lo > 1) {
+            const mid = (lo + hi) >> 1;
+            if (arr[mid].x < x) lo = mid;
+            else hi = mid;
+          }
+          const a = arr[lo],
+            b = arr[hi];
+          const t = (x - a.x) / Math.max(b.x - a.x, EPS);
+          return lerp(a.cp, b.cp, t);
+        }
+
+        function buildPolar(props, currentState) {
+          const key = JSON.stringify({
+            sourceMode: currentState.sourceMode,
+            nacaCode: currentState.nacaCode,
+            nacaCamberPct: currentState.nacaCamberPct,
+            nacaCamberPosPct: currentState.nacaCamberPosPct,
+            nacaThicknessPct: currentState.nacaThicknessPct,
+            nacaPointCount: currentState.nacaPointCount,
+            nacaSpacing: currentState.nacaSpacing,
+            nacaClosedTE: currentState.nacaClosedTE,
+            customCoords: currentState.sourceMode === "custom" ? (currentState.customCoords || els.customCoords.value || "") : "",
+            chord: currentState.chord,
+            density: currentState.density,
+            velocity: currentState.velocity,
+            reMode: currentState.reMode,
+            reynolds: currentState.reynolds,
+            viscosity: currentState.viscosity,
+            panels: currentState.panels,
+            flapDeg: currentState.flapDeg
+          });
+          if (polarSignature === key && polarCache) return polarCache;
+          polarSignature = key;
+          const data = [];
+          for (let a = -18; a <= 24; a += 1) {
+            const tempState = {
+              ...currentState,
+              alphaDeg: a
+            };
+            data.push({
+              alpha: a,
+              ...estimateSectionModel(null, props, tempState)
+            });
+          }
+          const aroundZero = data.filter(d => d.alpha >= -6 && d.alpha <= 6);
+          const fit = linearRegression(aroundZero.map(d => d.alpha * DEG), aroundZero.map(d => d.CL));
+          polarCache = {
+            data,
+            fit
+          };
+          return polarCache;
+        }
+
+        function buildFlowField(potential, currentState) {
+          const bounds = {
+            xMin: -1.75,
+            xMax: 2.75,
+            yMin: -1.25,
+            yMax: 1.25
+          };
+          const cols = clamp(Math.round(currentState.flowFieldCols), 24, 240),
+            rows = clamp(Math.round(currentState.flowFieldRows), 16, 180);
+          const field = new Array(rows);
+          for (let iy = 0; iy < rows; iy++) {
+            field[iy] = new Array(cols);
+            const y = lerp(bounds.yMin, bounds.yMax, iy / (rows - 1));
+            for (let ix = 0; ix < cols; ix++) {
+              const x = lerp(bounds.xMin, bounds.xMax, ix / (cols - 1));
+              let u = 1,
+                v = 0;
+              const inside = pointInPolygon({
+                x,
+                y
+              }, potential.rotatedContour);
+              if (!inside) {
+                for (let j = 0; j < potential.panels.length; j++) {
+                  const sj = sourcePanelVelocity(potential.panels[j], x, y);
+                  const vv = vortexPanelVelocity(potential.panels[j], x, y);
+                  u += potential.sigma[j] * sj.x + potential.gamma * vv.x;
+                  v += potential.sigma[j] * sj.y + potential.gamma * vv.y;
+                }
+              } else {
+                u = 0;
+                v = 0;
+              }
+              const speed = Math.sqrt(u * u + v * v);
+              field[iy][ix] = {
+                x,
+                y,
+                u: clamp(u, -4, 4),
+                v: clamp(v, -4, 4),
+                speed: clamp(speed, 0, 4),
+                cp: clamp(1 - speed * speed, -3, 1.2),
+                inside
+              };
+            }
+          }
+          return {
+            bounds,
+            cols,
+            rows,
+            field
+          };
+        }
+
+        function sampleField(grid, x, y) {
+          const {
+            bounds,
+            cols,
+            rows,
+            field
+          } = grid;
+          const tx = clamp((x - bounds.xMin) / (bounds.xMax - bounds.xMin), 0, 0.999999);
+          const ty = clamp((y - bounds.yMin) / (bounds.yMax - bounds.yMin), 0, 0.999999);
+          const ix = Math.floor(tx * (cols - 1));
+          const iy = Math.floor(ty * (rows - 1));
+          const fx = tx * (cols - 1) - ix;
+          const fy = ty * (rows - 1) - iy;
+          const a = field[iy][ix];
+          const b = field[iy][Math.min(ix + 1, cols - 1)];
+          const c = field[Math.min(iy + 1, rows - 1)][ix];
+          const d = field[Math.min(iy + 1, rows - 1)][Math.min(ix + 1, cols - 1)];
+          return {
+            u: bilerp(a.u, b.u, c.u, d.u, fx, fy),
+            v: bilerp(a.v, b.v, c.v, d.v, fx, fy),
+            speed: bilerp(a.speed, b.speed, c.speed, d.speed, fx, fy),
+            cp: bilerp(a.cp, b.cp, c.cp, d.cp, fx, fy),
+            inside: a.inside || b.inside || c.inside || d.inside
+          };
+        }
+
+        function bilerp(a, b, c, d, tx, ty) {
+          return lerp(lerp(a, b, tx), lerp(c, d, tx), ty);
+        }
+        const particles = [];
+
+        function resetParticles(count, bounds) {
+          particles.length = 0;
+          for (let i = 0; i < count; i++) particles.push(newParticle(bounds, i / count));
+        }
+
+        function newParticle(bounds, phase = Math.random()) {
+          return {
+            x: bounds.xMin + Math.random() * 0.25,
+            y: lerp(bounds.yMin, bounds.yMax, phase),
+            age: Math.random() * 200,
+            trail: []
+          };
+        }
+
+        function formatNumber(v, digits = 3) {
+          if (!Number.isFinite(v)) return "—";
+          const av = Math.abs(v);
+          if (av >= 1000) return v.toFixed(0);
+          if (av >= 100) return v.toFixed(1);
+          if (av >= 10) return v.toFixed(2);
+          return v.toFixed(digits);
+        }
+
+        function requestSolve(force = false) {
+          if (state.reMode === "reynolds") {
+            state.viscosity = computeViscosityFromRe(state.reynolds, state.density, state.velocity, state.chord);
+            syncPairValue("viscosity", state.viscosity);
+          } else {
+            state.reynolds = computeRe(state.density, state.velocity, state.chord, state.viscosity);
+            syncPairValue("reynolds", Math.round(state.reynolds));
+          }
+          if (force) {
+            solveScheduled = false;
+            computeAll();
+            return;
+          }
+          if (solveScheduled) return;
+          solveScheduled = true;
+          requestAnimationFrame(() => {
+            solveScheduled = false;
+            computeAll();
+          });
+        }
+
+        function computeAll() {
+          const signature = JSON.stringify({
+            sourceMode: state.sourceMode,
+            preset: state.preset,
+            nacaCode: state.nacaCode,
+            nacaCamberPct: state.nacaCamberPct,
+            nacaCamberPosPct: state.nacaCamberPosPct,
+            nacaThicknessPct: state.nacaThicknessPct,
+            nacaPointCount: state.nacaPointCount,
+            nacaSpacing: state.nacaSpacing,
+            nacaClosedTE: state.nacaClosedTE,
+            customCoords: state.sourceMode === "custom" ? (state.customCoords || els.customCoords.value || "") : "",
+            chord: state.chord,
+            alphaDeg: state.alphaDeg,
+            velocity: state.velocity,
+            density: state.density,
+            viscosity: state.viscosity,
+            reynolds: state.reynolds,
+            reMode: state.reMode,
+            panels: state.panels,
+            flowFieldCols: state.flowFieldCols,
+            flowFieldRows: state.flowFieldRows,
+            tunnelGridStep: state.tunnelGridStep,
+            particleDensity: state.particleDensity,
+            flapDeg: state.flapDeg
+          });
+          if (!lastSolveSignature && state.sourceMode === "custom" && !state.customCoords && !els.customCoords.value.trim()) {
+            state.sourceMode = "preset";
+          }
+          if (signature === lastSolveSignature && latest) {
+            updateOutputPanels();
+            drawAll();
+            return;
+          }
+          let baseContour;
+          try {
+            state.customCoords = els.customCoords.value;
+            baseContour = buildBaseAirfoilPoints(state);
+          } catch (err) {
+            console.error(err);
+            alert(err.message || "Could not build the airfoil geometry.");
+            return;
+          }
+          const props = buildAirfoilProperties(baseContour);
+          const renderBase = translatePoints(baseContour, -0.25, 0);
+          const section = estimateSectionModel(baseContour, props, state);
+          const potential = solvePotentialSurface(renderBase, baseContour, state.alphaDeg);
+          const cp = buildCpSeries(baseContour, potential.cp);
+          const meanDeltaCp = computeMeanDeltaCp(cp);
+          const polar = buildPolar(props, state);
+          const field = buildFlowField(potential, state);
+          if (!particles.length || particles.length !== state.particleDensity) {
+            resetParticles(state.particleDensity, field.bounds);
+          }
+          latest = {
+            baseContour,
+            renderBase,
+            props,
+            section,
+            potential,
+            cp,
+            meanDeltaCp,
+            polar,
+            field
+          };
+          lastSolveSignature = signature;
+          updateOutputPanels();
+          drawAll();
+        }
+
+        function updateOutputPanels() {
+          if (!latest) return;
+          const s = latest.section;
+          const mu = state.viscosity;
+          const rows = [metric("Lift", formatNumber(s.lift, 2), "N/m"), metric("Drag", formatNumber(s.drag, 3), "N/m"), metric("C_L", formatNumber(s.CL, 4), ""), metric("C_D", formatNumber(s.CD, 4), ""), metric("C_M,c/4", formatNumber(s.CM, 4), ""), metric("x_cp / c", Number.isFinite(s.xcp) ? formatNumber(s.xcp, 4) : "—", ""), metric("Reynolds", Math.round(s.re).toLocaleString(), ""), metric("Dynamic pressure", formatNumber(s.q, 2), "Pa"), metric("Circulation", formatNumber(s.gamma, 4), "m²/s"), metric("L / D", Number.isFinite(s.LD) ? formatNumber(s.LD, 3) : "—", ""), metric("Zero-lift angle", formatNumber(s.alpha0, 2), "deg"), metric("Mean ΔCp", formatNumber(latest.meanDeltaCp, 3), "")];
+          els.outputs.innerHTML = rows.join("");
+          els.statusTitle.textContent = s.regimeTitle;
+          els.statusText.textContent = s.regimeText;
+          els.statusBox.className = `status ${s.regimeClass}`;
+          els.modelNote.textContent = `${s.modelNote} μ = ${mu.toExponential(3)} Pa·s · field ${state.flowFieldCols}×${state.flowFieldRows}`;
+          els.flowInfo1.textContent = `AoA ${formatNumber(state.alphaDeg, 1)}°`;
+          els.flowInfo2.textContent = `Re ${Math.round(s.re).toLocaleString()}`;
+          els.flowInfo3.textContent = `q = ${formatNumber(s.q, 2)} Pa`;
+          els.flowCL.textContent = formatNumber(s.CL, 3);
+          els.flowCD.textContent = formatNumber(s.CD, 4);
+        }
+
+        function metric(name, value, unit) {
+          return `
+																														<div class="metric">
+																															<div class="name">${name}</div>
+																															<div class="value">${value}</div>
+																															<div class="unit">${unit}</div>
+																														</div>`;
+        }
+
+        function drawAll() {
+          if (!latest) return;
+          resizeCanvasToDisplaySize(els.flowCanvas, ctxFlow);
+          resizeCanvasToDisplaySize(els.cpCanvas, ctxCp);
+          resizeCanvasToDisplaySize(els.clAlphaCanvas, ctxClAlpha);
+          resizeCanvasToDisplaySize(els.polarCanvas, ctxPolar);
+          drawFlow();
+          drawCpGraph();
+          drawLiftCurve();
+          drawDragPolar();
+        }
+
+        function resizeCanvasToDisplaySize(canvas, ctx) {
+          const ratio = Math.max(1, Math.min(2, window.devicePixelRatio || 1));
+          const w = Math.floor(canvas.clientWidth * ratio);
+          const h = Math.floor(canvas.clientHeight * ratio);
+          if (canvas.width !== w || canvas.height !== h) {
+            canvas.width = w;
+            canvas.height = h;
+            ctx.setTransform(1, 0, 0, 1, 0, 0);
+          }
+        }
+
+        function worldToCanvasFactory(canvas, bounds) {
+          const w = canvas.width,
+            h = canvas.height;
+          const sx = w / (bounds.xMax - bounds.xMin);
+          const sy = h / (bounds.yMax - bounds.yMin);
+          const scale = Math.min(sx, sy);
+          const padX = 0.5 * (w - scale * (bounds.xMax - bounds.xMin));
+          const padY = 0.5 * (h - scale * (bounds.yMax - bounds.yMin));
+          return p => ({
+            x: padX + (p.x - bounds.xMin) * scale,
+            y: h - padY - (p.y - bounds.yMin) * scale
+          });
+        }
+
+        function drawFlow() {
+          const ctx = ctxFlow;
+          const canvas = els.flowCanvas;
+          const w = canvas.width,
+            h = canvas.height;
+          ctx.clearRect(0, 0, w, h);
+          const grid = latest.field;
+          const bounds = grid.bounds;
+          const toPx = worldToCanvasFactory(canvas, bounds);
+          drawTunnelBackdrop(ctx, canvas, bounds, toPx);
+          if (state.showPressureField) drawPressureField(ctx, canvas, grid, toPx);
+          if (state.showWake) drawWakeGuides(ctx, toPx);
+          if (state.showVectors) drawVelocityVectors(ctx, grid, toPx);
+          if (state.showStreamlines && !state.pauseAnim) updateParticles();
+          if (state.showStreamlines) drawParticles(ctx, toPx);
+          drawAirfoilBody(ctx, toPx);
+          if (state.showStagnation) drawStagnationPoints(ctx, toPx);
+          if (state.showForces) drawForceVectors(ctx, toPx);
+          drawFlowDirection(ctx, canvas);
+          drawMainAxesLabel(ctx, canvas);
+        }
+
+        function drawTunnelBackdrop(ctx, canvas, bounds, toPx) {
+          const w = canvas.width,
+            h = canvas.height;
+          ctx.save();
+          const grad = ctx.createLinearGradient(0, 0, 0, h);
+          grad.addColorStop(0, "#0e1622");
+          grad.addColorStop(1, "#0a1118");
+          ctx.fillStyle = grad;
+          ctx.fillRect(0, 0, w, h);
+          ctx.strokeStyle = "rgba(76, 98, 125, 0.18)";
+          ctx.lineWidth = 1;
+          const gridStep = clamp(state.tunnelGridStep, 0.05, 0.5);
+      const xStart = Math.ceil(bounds.xMin / gridStep) * gridStep;
+      const yStart = Math.ceil(bounds.yMin / gridStep) * gridStep;
+      for (let x = xStart; x <= bounds.xMax + 1e-9; x += gridStep) {
+        const p1 = toPx({ x, y: bounds.yMin });
+        const p2 = toPx({ x, y: bounds.yMax });
+        ctx.beginPath();
+        ctx.moveTo(p1.x, p1.y);
+        ctx.lineTo(p2.x, p2.y);
+        ctx.stroke();
+      }
+      for (let y = yStart; y <= bounds.yMax + 1e-9; y += gridStep) {
+        const p1 = toPx({ x: bounds.xMin, y });
+        const p2 = toPx({ x: bounds.xMax, y });
+        ctx.beginPath();
+        ctx.moveTo(p1.x, p1.y);
+        ctx.lineTo(p2.x, p2.y);
+        ctx.stroke();
+      }
+          ctx.strokeStyle = "rgba(117, 144, 177, 0.3)";
+          ctx.lineWidth = 1.2;
+          const midTop = toPx({
+            x: bounds.xMin,
+            y: 0.95
+          });
+          const midTop2 = toPx({
+            x: bounds.xMax,
+            y: 0.95
+          });
+          const midBottom = toPx({
+            x: bounds.xMin,
+            y: -0.95
+          });
+          const midBottom2 = toPx({
+            x: bounds.xMax,
+            y: -0.95
+          });
+          ctx.beginPath();
+          ctx.moveTo(midTop.x, midTop.y);
+          ctx.lineTo(midTop2.x, midTop2.y);
+          ctx.stroke();
+          ctx.beginPath();
+          ctx.moveTo(midBottom.x, midBottom.y);
+          ctx.lineTo(midBottom2.x, midBottom2.y);
+          ctx.stroke();
+          ctx.restore();
+        }
+
+        function cpToColor(cp, alpha = 0.85) {
+          const c = clamp(cp, -2.5, 1.0);
+          if (c < 0) {
+            const t = clamp(-c / 2.5, 0, 1);
+            const r = Math.round(60 + 20 * t);
+            const g = Math.round(95 + 120 * (1 - t));
+            const b = Math.round(180 + 60 * t);
+            return `rgba(${r},${g},${b},${alpha})`;
+          }
+          const t = clamp(c / 1.0, 0, 1);
+          const r = Math.round(180 + 60 * t);
+          const g = Math.round(55 + 90 * (1 - t));
+          const b = Math.round(50 + 40 * (1 - t));
+          return `rgba(${r},${g},${b},${alpha})`;
+        }
+
+        function drawPressureField(ctx, canvas, grid, toPx) {
+          const {
+            rows,
+            cols,
+            field
+          } = grid;
+          for (let iy = 0; iy < rows - 1; iy++) {
+            for (let ix = 0; ix < cols - 1; ix++) {
+              const cell = field[iy][ix];
+              if (cell.inside) continue;
+              const p = toPx({
+                x: cell.x,
+                y: cell.y
+              });
+              const pn = toPx({
+                x: field[iy + 1][ix + 1].x,
+                y: field[iy + 1][ix + 1].y
+              });
+              ctx.fillStyle = cpToColor(cell.cp, 0.20);
+              ctx.fillRect(p.x, pn.y, pn.x - p.x + 1, p.y - pn.y + 1);
+            }
+          }
+        }
+
+        function updateParticles() {
+          const dt = 0.9 * (state.velocity / 40);
+          const bounds = latest.field.bounds;
+          for (let i = 0; i < particles.length; i++) {
+            const p = particles[i];
+            const sample = sampleField(latest.field, p.x, p.y);
+            if (sample.inside || !Number.isFinite(sample.u) || !Number.isFinite(sample.v)) {
+              particles[i] = newParticle(bounds, i / particles.length);
+              continue;
+            }
+            p.trail.push({
+              x: p.x,
+              y: p.y,
+              speed: sample.speed
+            });
+            if (p.trail.length > 10) p.trail.shift();
+            p.x += sample.u * 0.018 * dt;
+            p.y += sample.v * 0.018 * dt;
+            p.age += 1;
+            if (p.x > bounds.xMax + 0.1 || p.x < bounds.xMin - 0.1 || p.y > bounds.yMax + 0.1 || p.y < bounds.yMin - 0.1 || p.age > 240) {
+              particles[i] = newParticle(bounds, Math.random());
+            }
+          }
+        }
+
+        function drawParticles(ctx, toPx) {
+          ctx.save();
+          ctx.lineWidth = 1.1;
+          for (const p of particles) {
+            if (!p.trail.length) continue;
+            ctx.beginPath();
+            for (let i = 0; i < p.trail.length; i++) {
+              const tp = toPx(p.trail[i]);
+              if (i === 0) ctx.moveTo(tp.x, tp.y);
+              else ctx.lineTo(tp.x, tp.y);
+            }
+            const alpha = clamp(p.trail[p.trail.length - 1].speed / 2.5, 0.12, 0.7);
+            ctx.strokeStyle = `rgba(161,212,255,${alpha})`;
+            ctx.stroke();
+            const head = toPx(p);
+            ctx.fillStyle = `rgba(188,230,255,0.8)`;
+            ctx.beginPath();
+            ctx.arc(head.x, head.y, 1.6, 0, TWO_PI);
+            ctx.fill();
+          }
+          ctx.restore();
+        }
+
+        function drawVelocityVectors(ctx, grid, toPx) {
+          ctx.save();
+          ctx.strokeStyle = "rgba(123, 197, 255, 0.45)";
+          ctx.lineWidth = 1;
+          const stepY = 4,
+            stepX = 4;
+          for (let iy = 0; iy < grid.rows; iy += stepY) {
+            for (let ix = 0; ix < grid.cols; ix += stepX) {
+              const cell = grid.field[iy][ix];
+              if (cell.inside) continue;
+              const p0 = toPx(cell);
+              const scale = 0.045;
+              const p1 = toPx({
+                x: cell.x + cell.u * scale,
+                y: cell.y + cell.v * scale
+              });
+              ctx.beginPath();
+              ctx.moveTo(p0.x, p0.y);
+              ctx.lineTo(p1.x, p1.y);
+              ctx.stroke();
+            }
+          }
+          ctx.restore();
+        }
+
+        function drawWakeGuides(ctx, toPx) {
+          const alpha = latest.section.CL;
+          const dir = clamp(alpha * 0.08, -0.18, 0.18);
+          ctx.save();
+          ctx.strokeStyle = "rgba(130,180,255,0.18)";
+          ctx.lineWidth = 1.2;
+          for (let i = -2; i <= 2; i++) {
+            const y0 = i * 0.02;
+            ctx.beginPath();
+            const p0 = toPx({
+              x: 0.78,
+              y: y0
+            });
+            ctx.moveTo(p0.x, p0.y);
+            for (let x = 0.9; x <= 2.5; x += 0.15) {
+              const y = y0 + dir * (x - 0.78) * 0.55;
+              const pp = toPx({
+                x,
+                y
+              });
+              ctx.lineTo(pp.x, pp.y);
+            }
+            ctx.stroke();
+          }
+          ctx.restore();
+        }
+
+        function drawAirfoilBody(ctx, toPx) {
+          const pts = latest.potential.rotatedContour;
+          ctx.save();
+          ctx.lineJoin = "round";
+          ctx.lineCap = "round";
+          const cpColors = latest.potential.cp.map(c => cpToColor(c.cp, 0.95));
+          ctx.beginPath();
+          pts.forEach((p, i) => {
+            const pp = toPx(p);
+            if (i === 0) ctx.moveTo(pp.x, pp.y);
+            else ctx.lineTo(pp.x, pp.y);
+          });
+          ctx.closePath();
+          ctx.fillStyle = "rgba(228,238,252,0.10)";
+          ctx.fill();
+          for (let i = 0; i < latest.potential.panels.length; i++) {
+            const p = latest.potential.panels[i];
+            const a = toPx(p.a),
+              b = toPx(p.b);
+            ctx.strokeStyle = cpColors[i];
+            ctx.lineWidth = 3.2;
+            ctx.beginPath();
+            ctx.moveTo(a.x, a.y);
+            ctx.lineTo(b.x, b.y);
+            ctx.stroke();
+          }
+          ctx.strokeStyle = "rgba(255,255,255,0.78)";
+          ctx.lineWidth = 1.1;
+          ctx.beginPath();
+          pts.forEach((p, i) => {
+            const pp = toPx(p);
+            if (i === 0) ctx.moveTo(pp.x, pp.y);
+            else ctx.lineTo(pp.x, pp.y);
+          });
+          ctx.closePath();
+          ctx.stroke();
+          ctx.restore();
+        }
+
+        function drawStagnationPoints(ctx, toPx) {
+          ctx.save();
+          [latest.potential.stagnationUpper, latest.potential.stagnationLower].forEach(p => {
+            if (!p) return;
+            const pp = toPx(p);
+            ctx.fillStyle = "rgba(255, 223, 127, 0.95)";
+            ctx.beginPath();
+            ctx.arc(pp.x, pp.y, 4.5, 0, TWO_PI);
+            ctx.fill();
+            ctx.strokeStyle = "rgba(20,20,20,0.8)";
+            ctx.lineWidth = 1.5;
+            ctx.stroke();
+          });
+          ctx.restore();
+        }
+
+        function drawForceVectors(ctx, toPx) {
+          const chordOrigin = rotatePoint({
+            x: 0.25 - 0.25,
+            y: 0
+          }, state.alphaDeg * DEG);
+          const base = toPx(chordOrigin);
+          const lift = latest.section.CL;
+          const drag = latest.section.CD;
+          const scale = 90;
+          drawArrow(ctx, base.x, base.y, base.x, base.y - lift * scale, "rgba(83, 215, 105, 0.95)", 3, "L");
+          drawArrow(ctx, base.x, base.y, base.x + drag * scale * 2.8, base.y, "rgba(255, 107, 107, 0.95)", 3, "D");
+        }
+
+        function drawArrow(ctx, x0, y0, x1, y1, color, width, label = "") {
+          const dx = x1 - x0,
+            dy = y1 - y0;
+          const len = Math.sqrt(dx * dx + dy * dy);
+          if (len < 1) return;
+          const ux = dx / len,
+            uy = dy / len;
+          const head = Math.min(10, len * 0.35);
+          ctx.save();
+          ctx.strokeStyle = color;
+          ctx.fillStyle = color;
+          ctx.lineWidth = width;
+          ctx.beginPath();
+          ctx.moveTo(x0, y0);
+          ctx.lineTo(x1, y1);
+          ctx.stroke();
+          ctx.beginPath();
+          ctx.moveTo(x1, y1);
+          ctx.lineTo(x1 - ux * head - uy * head * 0.55, y1 - uy * head + ux * head * 0.55);
+          ctx.lineTo(x1 - ux * head + uy * head * 0.55, y1 - uy * head - ux * head * 0.55);
+          ctx.closePath();
+          ctx.fill();
+          if (label) {
+            ctx.font = "12px Inter, Segoe UI, Arial";
+            ctx.fillText(label, x1 + 8, y1 - 6);
+          }
+          ctx.restore();
+        }
+
+        function drawFlowDirection(ctx, canvas) {
+          const x0 = canvas.width - 150;
+          const y0 = 28;
+          ctx.save();
+          ctx.strokeStyle = "rgba(173, 206, 245, 0.85)";
+          ctx.fillStyle = "rgba(173, 206, 245, 0.85)";
+          ctx.lineWidth = 2.2;
+          ctx.beginPath();
+          ctx.moveTo(x0, y0);
+          ctx.lineTo(x0 + 110, y0);
+          ctx.stroke();
+          ctx.beginPath();
+          ctx.moveTo(x0 + 110, y0);
+          ctx.lineTo(x0 + 98, y0 - 6);
+          ctx.lineTo(x0 + 98, y0 + 6);
+          ctx.closePath();
+          ctx.fill();
+          ctx.font = "12px Inter, Segoe UI, Arial";
+          ctx.fillText("freestream", x0 + 18, y0 - 8);
+          ctx.restore();
+        }
+
+        function drawMainAxesLabel(ctx, canvas) {
+          ctx.save();
+          ctx.fillStyle = "rgba(193, 208, 228, 0.75)";
+          ctx.font = "12px Inter, Segoe UI, Arial";
+          ctx.fillText("pressure tint: red = higher pressure, blue = suction", 16, canvas.height - 20);
+          ctx.restore();
+        }
+
+        function drawAxes(ctx, canvas, xMin, xMax, yMin, yMax, labels, invertY = false) {
+          const w = canvas.width,
+            h = canvas.height;
+          const pad = {
+            l: 48,
+            r: 20,
+            t: 20,
+            b: 34
+          };
+          ctx.clearRect(0, 0, w, h);
+          ctx.fillStyle = "#0d141e";
+          ctx.fillRect(0, 0, w, h);
+
+          function X(x) {
+            return pad.l + (x - xMin) / (xMax - xMin) * (w - pad.l - pad.r);
+          }
+
+          function Y(y) {
+            const t = (y - yMin) / (yMax - yMin);
+            return invertY ? pad.t + t * (h - pad.t - pad.b) : h - pad.b - t * (h - pad.t - pad.b);
+          }
+          ctx.strokeStyle = "rgba(72, 95, 122, 0.34)";
+          ctx.lineWidth = 1;
+          const xTicks = 5;
+          const yTicks = 5;
+          for (let i = 0; i <= xTicks; i++) {
+            const xv = lerp(xMin, xMax, i / xTicks);
+            const px = X(xv);
+            ctx.beginPath();
+            ctx.moveTo(px, pad.t);
+            ctx.lineTo(px, h - pad.b);
+            ctx.stroke();
+          }
+          for (let i = 0; i <= yTicks; i++) {
+            const yv = lerp(yMin, yMax, i / yTicks);
+            const py = Y(yv);
+            ctx.beginPath();
+            ctx.moveTo(pad.l, py);
+            ctx.lineTo(w - pad.r, py);
+            ctx.stroke();
+          }
+          ctx.strokeStyle = "rgba(200,220,245,0.38)";
+          ctx.beginPath();
+          ctx.moveTo(pad.l, h - pad.b);
+          ctx.lineTo(w - pad.r, h - pad.b);
+          ctx.lineTo(w - pad.r, pad.t);
+          ctx.stroke();
+          ctx.fillStyle = "rgba(198,214,235,0.8)";
+          ctx.font = "11px Inter, Segoe UI, Arial";
+          for (let i = 0; i <= xTicks; i++) {
+            const xv = lerp(xMin, xMax, i / xTicks);
+            const px = X(xv);
+            ctx.fillText(formatAxisNumber(xv), px - 10, h - 10);
+          }
+          for (let i = 0; i <= yTicks; i++) {
+            const yv = lerp(yMin, yMax, i / yTicks);
+            const py = Y(yv);
+            ctx.fillText(formatAxisNumber(yv), 8, py + 4);
+          }
+          ctx.save();
+          ctx.fillStyle = "rgba(198,214,235,0.9)";
+          ctx.font = "12px Inter, Segoe UI, Arial";
+          ctx.fillText(labels.x, w * 0.5 - 20, h - 10);
+          ctx.translate(14, h * 0.5 + 12);
+          ctx.rotate(-Math.PI / 2);
+          ctx.fillText(labels.y, 0, 0);
+          ctx.restore();
+          return {
+            X,
+            Y,
+            pad,
+            w,
+            h
+          };
+        }
+
+        function formatAxisNumber(v) {
+          const av = Math.abs(v);
+          if (av >= 1000) return String(Math.round(v));
+          if (av >= 100) return v.toFixed(0);
+          if (av >= 10) return v.toFixed(1);
+          if (av >= 1) return v.toFixed(2).replace(/\.00$/, "");
+          return v.toFixed(2);
+        }
+
+        function drawCpGraph() {
+          const ctx = ctxCp;
+          const canvas = els.cpCanvas;
+          const cpSeries = latest.cp;
+          const yVals = [].concat(cpSeries.upper.map(p => p.cp), cpSeries.lower.map(p => p.cp)).concat(referenceState ? referenceState.cpUpper.map(p => p.cp).concat(referenceState.cpLower.map(p => p.cp)) : []);
+          const yMin = Math.min(-2.4, ...yVals) - 0.2;
+          const yMax = Math.max(1.0, ...yVals) + 0.1;
+          const axes = drawAxes(ctx, canvas, 0, 1, yMin, yMax, {
+            x: "x / c",
+            y: "C_p"
+          }, true);
+          if (!state.showCpCurve) {
+            ctx.fillStyle = "rgba(200,215,235,0.7)";
+            ctx.fillText("Cp view disabled in layer controls.", 60, 28);
+            return;
+          }
+          if (referenceState) {
+            drawLineSeries(ctx, axes, referenceState.cpUpper, p => p.x, p => p.cp, "rgba(170,182,198,0.75)", 1.5, [5, 4]);
+            drawLineSeries(ctx, axes, referenceState.cpLower, p => p.x, p => p.cp, "rgba(170,182,198,0.75)", 1.5, [5, 4]);
+          }
+          drawLineSeries(ctx, axes, cpSeries.upper, p => p.x, p => p.cp, "rgba(99,179,255,0.98)", 2.2);
+          drawLineSeries(ctx, axes, cpSeries.lower, p => p.x, p => p.cp, "rgba(78,224,184,0.98)", 2.2);
+          ctx.fillStyle = "rgba(220,232,245,0.72)";
+          ctx.fillText("Attached-flow surface estimate", canvas.width - 190, 24);
+        }
+
+        function drawLiftCurve() {
+          const ctx = ctxClAlpha;
+          const canvas = els.clAlphaCanvas;
+          const data = latest.polar.data;
+          const cls = data.map(d => d.CL);
+          const yMin = Math.min(-2.2, ...cls) - 0.1;
+          const yMax = Math.max(2.2, ...cls) + 0.1;
+          const axes = drawAxes(ctx, canvas, -18, 24, yMin, yMax, {
+            x: "angle (deg)",
+            y: "C_L"
+          });
+          drawLineSeries(ctx, axes, data, p => p.alpha, p => p.CL, "rgba(99,179,255,0.98)", 2.3);
+          const fit = latest.polar.fit;
+          const thin = [];
+          for (let a = -18; a <= 24; a += 0.5) thin.push({
+            alpha: a,
+            CL: fit.intercept + fit.slope * (a * DEG)
+          });
+          drawLineSeries(ctx, axes, thin, p => p.alpha, p => p.CL, "rgba(78,224,184,0.82)", 1.8, [8, 4]);
+          if (referenceState) {
+            const p = referenceState.point;
+            drawMarker(ctx, axes, p.alpha, p.CL, "rgba(170,182,198,0.95)", 4.5);
+          }
+          drawMarker(ctx, axes, state.alphaDeg, latest.section.CL, "rgba(255,244,155,0.98)", 5.5);
+          ctx.fillStyle = "rgba(220,232,245,0.72)";
+          ctx.fillText(`α₀ ≈ ${formatNumber(latest.section.alpha0, 2)}°`, canvas.width - 92, 24);
+        }
+
+        function drawDragPolar() {
+          const ctx = ctxPolar;
+          const canvas = els.polarCanvas;
+          const data = latest.polar.data;
+          const cds = data.map(d => d.CD);
+          const cls = data.map(d => d.CL);
+          const axes = drawAxes(ctx, canvas, Math.max(0, Math.min(...cds) - 0.01), Math.max(...cds) + 0.04, Math.min(...cls) - 0.2, Math.max(...cls) + 0.2, {
+            x: "C_D",
+            y: "C_L"
+          });
+          drawLineSeries(ctx, axes, data, p => p.CD, p => p.CL, "rgba(99,179,255,0.98)", 2.3);
+          if (referenceState) drawMarker(ctx, axes, referenceState.point.CD, referenceState.point.CL, "rgba(170,182,198,0.95)", 4.5);
+          drawMarker(ctx, axes, latest.section.CD, latest.section.CL, "rgba(255,244,155,0.98)", 5.5);
+        }
+
+        function drawLineSeries(ctx, axes, data, getX, getY, color, width = 2, dash = []) {
+          ctx.save();
+          ctx.strokeStyle = color;
+          ctx.lineWidth = width;
+          ctx.setLineDash(dash);
+          ctx.beginPath();
+          data.forEach((d, i) => {
+            const x = axes.X(getX(d));
+            const y = axes.Y(getY(d));
+            if (i === 0) ctx.moveTo(x, y);
+            else ctx.lineTo(x, y);
+          });
+          ctx.stroke();
+          ctx.restore();
+        }
+
+        function drawMarker(ctx, axes, x, y, color, r = 4) {
+          ctx.save();
+          ctx.fillStyle = color;
+          ctx.strokeStyle = "rgba(15,20,26,0.8)";
+          ctx.lineWidth = 1.5;
+          ctx.beginPath();
+          ctx.arc(axes.X(x), axes.Y(y), r, 0, TWO_PI);
+          ctx.fill();
+          ctx.stroke();
+          ctx.restore();
+        }
+        window.addEventListener("resize", drawAll);
+
+        function animate() {
+          if (!state.pauseAnim && latest) drawFlow();
+          requestAnimationFrame(animate);
+        }
+        try {
+          const initPts = buildBaseAirfoilPoints({
+            ...state
+          }, true);
+          els.customCoords.value = initPts.map(p => `${p.x.toFixed(6)} ${p.y.toFixed(6)}`).join("\n");
+          state.customCoords = els.customCoords.value;
+        } catch (err) {
+          console.warn(err);
+        }
+        requestSolve(true);
+        animate();
+      })();
+    </script>
+  </body>
+</html>
