@@ -1,0 +1,1484 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Live Suspension Demo</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #0b1020;
+      --panel: rgba(16, 24, 46, 0.88);
+      --panel-2: rgba(22, 32, 60, 0.9);
+      --text: #e8eefc;
+      --muted: #9fb0d6;
+      --line: rgba(145, 165, 220, 0.22);
+      --accent: #67b7ff;
+      --accent-2: #95f9c3;
+      --accent-3: #ffb86b;
+      --danger: #ff7a7a;
+      --shadow: 0 18px 42px rgba(0, 0, 0, 0.28);
+      --road: #3f465f;
+      --road-fill: #23293f;
+      --tire: #1a1d28;
+      --rim: #cfd8ee;
+      --body: #5da8ff;
+      --body-2: #8ed1ff;
+      --spring: #8affdc;
+      --damper: #ffb66b;
+      --arm: #d6def4;
+      --grid: rgba(160, 180, 220, 0.08);
+      --graph-body: #7dc7ff;
+      --graph-wheel: #a1ffcb;
+      --graph-road: #ffc589;
+      --button: rgba(108, 140, 211, 0.14);
+      --button-hover: rgba(108, 140, 211, 0.24);
+      --input-bg: rgba(255, 255, 255, 0.04);
+    }
+
+    body[data-theme="light"] {
+      color-scheme: light;
+      --bg: #eef3fb;
+      --panel: rgba(255, 255, 255, 0.88);
+      --panel-2: rgba(248, 250, 255, 0.94);
+      --text: #18253f;
+      --muted: #5a6e96;
+      --line: rgba(74, 99, 160, 0.18);
+      --accent: #0f6fff;
+      --accent-2: #0b9a72;
+      --accent-3: #d97600;
+      --danger: #da5050;
+      --shadow: 0 18px 40px rgba(32, 57, 108, 0.12);
+      --road: #6f7788;
+      --road-fill: #c7d0df;
+      --tire: #1f2430;
+      --rim: #e8eefb;
+      --body: #3c89ff;
+      --body-2: #87d0ff;
+      --spring: #0ea67b;
+      --damper: #d4791e;
+      --arm: #47597e;
+      --grid: rgba(40, 65, 120, 0.07);
+      --graph-body: #2b78ff;
+      --graph-wheel: #13a57b;
+      --graph-road: #d47822;
+      --button: rgba(48, 95, 200, 0.08);
+      --button-hover: rgba(48, 95, 200, 0.15);
+      --input-bg: rgba(14, 39, 97, 0.035);
+    }
+
+    * { box-sizing: border-box; }
+
+    html, body {
+      margin: 0;
+      min-height: 100%;
+      background:
+        radial-gradient(circle at top, rgba(103, 183, 255, 0.16), transparent 28%),
+        linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0)),
+        var(--bg);
+      color: var(--text);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    body {
+      padding: 24px;
+      transition: background 0.25s ease, color 0.25s ease;
+    }
+
+    .app {
+      max-width: 1380px;
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: 360px minmax(680px, 1fr);
+      gap: 20px;
+      align-items: start;
+    }
+
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 22px;
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(12px);
+    }
+
+    .controls {
+      padding: 20px;
+      position: sticky;
+      top: 24px;
+    }
+
+    .controls h1 {
+      margin: 0 0 6px;
+      font-size: 1.55rem;
+      line-height: 1.15;
+      letter-spacing: -0.02em;
+    }
+
+    .subtle {
+      margin: 0 0 16px;
+      color: var(--muted);
+      line-height: 1.5;
+      font-size: 0.95rem;
+    }
+
+    .section {
+      padding-top: 14px;
+      margin-top: 14px;
+      border-top: 1px solid var(--line);
+    }
+
+    .control-grid {
+      display: grid;
+      gap: 14px;
+    }
+
+    label {
+      display: block;
+      font-weight: 700;
+      margin-bottom: 8px;
+      letter-spacing: 0.01em;
+    }
+
+    .row-head {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 8px;
+    }
+
+    .value {
+      color: var(--accent);
+      font-weight: 700;
+      white-space: nowrap;
+      font-variant-numeric: tabular-nums;
+    }
+
+    input[type="range"] {
+      width: 100%;
+      appearance: none;
+      height: 8px;
+      border-radius: 999px;
+      background: linear-gradient(90deg, var(--accent), rgba(255,255,255,0.12));
+      outline: none;
+      cursor: pointer;
+    }
+
+    input[type="range"]::-webkit-slider-thumb {
+      appearance: none;
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      border: 2px solid rgba(255,255,255,0.75);
+      background: var(--panel-2);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.24);
+    }
+
+    input[type="range"]::-moz-range-thumb {
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      border: 2px solid rgba(255,255,255,0.75);
+      background: var(--panel-2);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.24);
+      cursor: pointer;
+    }
+
+    .hint {
+      margin-top: 6px;
+      font-size: 0.82rem;
+      color: var(--muted);
+      line-height: 1.4;
+    }
+
+    select, button {
+      font: inherit;
+      color: var(--text);
+      background: var(--input-bg);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 11px 13px;
+      transition: background 0.2s ease, transform 0.15s ease, border-color 0.2s ease;
+    }
+
+    select {
+      width: 100%;
+      cursor: pointer;
+    }
+
+    button {
+      cursor: pointer;
+      background: var(--button);
+      font-weight: 700;
+      letter-spacing: 0.01em;
+    }
+
+    button:hover, select:hover {
+      background: var(--button-hover);
+    }
+
+    button:active {
+      transform: translateY(1px);
+    }
+
+    .button-row {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .status-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .metric {
+      background: var(--panel-2);
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 12px;
+    }
+
+    .metric .label {
+      display: block;
+      color: var(--muted);
+      font-size: 0.82rem;
+      margin-bottom: 6px;
+      letter-spacing: 0.02em;
+      text-transform: uppercase;
+    }
+
+    .metric .reading {
+      font-size: 1.08rem;
+      font-weight: 800;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .metric.phase-compression .reading { color: var(--accent-3); }
+    .metric.phase-rebound .reading { color: var(--accent-2); }
+
+    .stage {
+      padding: 16px;
+      display: grid;
+      gap: 14px;
+    }
+
+    .stage-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 16px;
+      flex-wrap: wrap;
+      padding: 4px 6px 0;
+    }
+
+    .stage-top h2 {
+      margin: 0;
+      font-size: 1.1rem;
+    }
+
+    .stage-top .legend {
+      display: flex;
+      gap: 14px;
+      align-items: center;
+      color: var(--muted);
+      font-size: 0.9rem;
+      flex-wrap: wrap;
+    }
+
+    .dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      display: inline-block;
+      margin-right: 7px;
+      vertical-align: middle;
+    }
+
+    .canvas-wrap, .graph-wrap {
+      background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
+      border: 1px solid var(--line);
+      border-radius: 20px;
+      overflow: hidden;
+      position: relative;
+    }
+
+    .scene-canvas {
+      display: block;
+      width: 100%;
+      height: 560px;
+    }
+
+    .graph-canvas {
+      display: block;
+      width: 100%;
+      height: 220px;
+    }
+
+    .scene-note, .graph-note {
+      position: absolute;
+      left: 16px;
+      top: 14px;
+      font-size: 0.86rem;
+      color: var(--muted);
+      background: rgba(0,0,0,0.08);
+      padding: 6px 9px;
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      pointer-events: none;
+      backdrop-filter: blur(8px);
+    }
+
+    .graph-note {
+      top: auto;
+      bottom: 14px;
+    }
+
+    .footer-line {
+      font-size: 0.82rem;
+      color: var(--muted);
+      padding: 0 6px 2px;
+    }
+
+    @media (max-width: 1100px) {
+      .app {
+        grid-template-columns: 1fr;
+      }
+      .controls {
+        position: static;
+      }
+    }
+
+    @media (max-width: 760px) {
+      body { padding: 14px; }
+      .scene-canvas { height: 460px; }
+      .status-grid, .button-row { grid-template-columns: 1fr; }
+    }
+  </style>
+<script type="text/javascript" nonce="571d8f2323c54ab99fed696eae8" src="//local.adguard.org?ts=1774626378066&amp;type=content-script&amp;dmn=chatgpt.com&amp;url=https%3A%2F%2Fchatgpt.com%2Fbackend-api%2Festuary%2Fcontent%3Fid%3Dfile_000000002c2871f78a8f0cdb27e8145a%26ts%3D492952%26p%3Dfs%26cid%3D1%26sig%3D30ed14d610c52a09566cb551af892d158f8100f72d4e5eb10912c078c3429189%26v%3D0&amp;app=com.apple.Safari&amp;css=2&amp;js=1&amp;rel=1&amp;rji=1&amp;sbe=1&amp;stealth=1&amp;st-wrtc&amp;st-push&amp;st-loc&amp;st-java&amp;st-dnt"></script><script type="text/javascript" nonce="571d8f2323c54ab99fed696eae8" src="//local.adguard.org?ts=1774626378066&amp;name=AdGuard%20Extra&amp;type=user-script"></script></head>
+<body data-theme="dark">
+  <main class="app">
+    <aside class="panel controls" aria-label="Simulation controls">
+      <h1>Live Suspension Demo</h1>
+      <p class="subtle">
+        Real-time quarter-car style suspension model with separate compression and rebound damping.
+      </p>
+
+      <section class="section" aria-labelledby="main-controls-title">
+        <div class="control-grid">
+          <div>
+            <div class="row-head">
+              <label for="spring">Spring Stiffness</label>
+              <output id="springValue" class="value" for="spring"></output>
+            </div>
+            <input id="spring" type="range" min="12000" max="70000" step="250" value="28000" />
+            <div class="hint">Higher spring rate reduces travel and raises natural frequency.</div>
+          </div>
+
+          <div>
+            <div class="row-head">
+              <label for="damping">Damping</label>
+              <output id="dampingValue" class="value" for="damping"></output>
+            </div>
+            <input id="damping" type="range" min="800" max="6000" step="50" value="2600" />
+            <div class="hint">Compression damping resists bump motion when the suspension shortens.</div>
+          </div>
+
+          <div>
+            <div class="row-head">
+              <label for="rebound">Rebound</label>
+              <output id="reboundValue" class="value" for="rebound"></output>
+            </div>
+            <input id="rebound" type="range" min="1200" max="9000" step="50" value="4000" />
+            <div class="hint">Rebound damping controls extension and recovery after the wheel unloads.</div>
+          </div>
+        </div>
+      </section>
+
+      <section class="section" aria-labelledby="setup-title">
+        <div class="control-grid">
+          <div>
+            <label for="roadMode">Road / Excitation Mode</label>
+            <select id="roadMode">
+              <option value="sine">Smooth sine wave</option>
+              <option value="bump">Single bump</option>
+              <option value="rough">Rough road</option>
+            </select>
+          </div>
+
+          <div>
+            <label for="preset">Preset</label>
+            <select id="preset">
+              <option value="soft">Soft road car</option>
+              <option value="sport" selected>Sporty road car</option>
+              <option value="race">Race car</option>
+            </select>
+          </div>
+
+          <div class="button-row">
+            <button id="playPause" type="button" aria-pressed="true">Pause</button>
+            <button id="reset" type="button">Reset</button>
+            <button id="themeToggle" type="button">Light Theme</button>
+            <button id="centerView" type="button">Recenter Graph</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="section" aria-labelledby="status-title">
+        <div class="row-head">
+          <label id="status-title">Live Status</label>
+          <span class="value">Quarter-car model</span>
+        </div>
+        <div class="status-grid">
+          <div class="metric">
+            <span class="label">Body displacement</span>
+            <div class="reading" id="bodyDisp">0.0 mm</div>
+          </div>
+          <div class="metric">
+            <span class="label">Wheel displacement</span>
+            <div class="reading" id="wheelDisp">0.0 mm</div>
+          </div>
+          <div class="metric">
+            <span class="label">Suspension travel</span>
+            <div class="reading" id="travelDisp">0.0 mm</div>
+          </div>
+          <div class="metric">
+            <span class="label">Body velocity</span>
+            <div class="reading" id="velocityDisp">0.0 mm/s</div>
+          </div>
+          <div class="metric">
+            <span class="label">Road input</span>
+            <div class="reading" id="roadDisp">0.0 mm</div>
+          </div>
+          <div class="metric phase-rebound" id="phaseMetric">
+            <span class="label">Damper phase</span>
+            <div class="reading" id="phaseDisp">Neutral</div>
+          </div>
+        </div>
+      </section>
+
+      <p class="footer-line">
+        Sprung mass: 320 kg · Unsprung mass: 42 kg · Tire rate: 190 kN/m
+      </p>
+    </aside>
+
+    <section class="panel stage" aria-label="Suspension visualization">
+      <div class="stage-top">
+        <h2>Side view suspension</h2>
+        <div class="legend" aria-hidden="true">
+          <span><span class="dot" style="background: var(--graph-body)"></span>Body</span>
+          <span><span class="dot" style="background: var(--graph-wheel)"></span>Wheel</span>
+          <span><span class="dot" style="background: var(--graph-road)"></span>Road</span>
+        </div>
+      </div>
+
+      <div class="canvas-wrap">
+        <div class="scene-note">Polished visualization driven directly by the simulation state.</div>
+        <canvas id="scene" class="scene-canvas" width="1000" height="560" aria-label="Live suspension scene"></canvas>
+      </div>
+
+      <div class="graph-wrap">
+        <canvas id="graph" class="graph-canvas" width="1000" height="220" aria-label="Body and wheel motion history"></canvas>
+        <div class="graph-note">History: body, wheel, and road displacement over time.</div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    (() => {
+      'use strict';
+
+      /**
+       * Live suspension demo
+       * --------------------
+       * The simulation is a simple but physically motivated 2-DOF quarter-car model:
+       *
+       *   ms * z_s'' = -F_s
+       *   mu * z_u'' =  F_s - F_t
+       *
+       * z_s = sprung mass displacement (body)
+       * z_u = unsprung mass displacement (wheel/hub)
+       * F_s = suspension spring + damper force
+       * F_t = tire spring force
+       *
+       * Compression damping and rebound damping are separated by checking the
+       * relative suspension velocity (z_s' - z_u').
+       *
+       * Coordinates use "upward positive" displacements around static equilibrium.
+       */
+
+      const sceneCanvas = document.getElementById('scene');
+      const graphCanvas = document.getElementById('graph');
+      const sceneCtx = sceneCanvas.getContext('2d');
+      const graphCtx = graphCanvas.getContext('2d');
+
+      const ui = {
+        spring: document.getElementById('spring'),
+        damping: document.getElementById('damping'),
+        rebound: document.getElementById('rebound'),
+        springValue: document.getElementById('springValue'),
+        dampingValue: document.getElementById('dampingValue'),
+        reboundValue: document.getElementById('reboundValue'),
+        roadMode: document.getElementById('roadMode'),
+        preset: document.getElementById('preset'),
+        playPause: document.getElementById('playPause'),
+        reset: document.getElementById('reset'),
+        themeToggle: document.getElementById('themeToggle'),
+        centerView: document.getElementById('centerView'),
+        bodyDisp: document.getElementById('bodyDisp'),
+        wheelDisp: document.getElementById('wheelDisp'),
+        travelDisp: document.getElementById('travelDisp'),
+        velocityDisp: document.getElementById('velocityDisp'),
+        roadDisp: document.getElementById('roadDisp'),
+        phaseDisp: document.getElementById('phaseDisp'),
+        phaseMetric: document.getElementById('phaseMetric')
+      };
+
+      const defaults = {
+        preset: 'sport',
+        roadMode: 'sine',
+        running: true,
+        theme: 'dark',
+        spring: 28000,
+        damping: 2600,
+        rebound: 4000
+      };
+
+      const presets = {
+        soft:  { spring: 15000, damping: 1500, rebound: 2400, label: 'Soft road car' },
+        sport: { spring: 28000, damping: 2600, rebound: 4000, label: 'Sporty road car' },
+        race:  { spring: 52000, damping: 4200, rebound: 7000, label: 'Race car' }
+      };
+
+      const physical = {
+        sprungMass: 320,        // kg
+        unsprungMass: 42,       // kg
+        tireStiffness: 190000,  // N/m
+        roadSpeed: 12           // m/s equivalent profile speed
+      };
+
+      const sim = {
+        time: 0,
+        running: defaults.running,
+        fixedDt: 1 / 240,
+        accumulator: 0,
+        lastTimestamp: 0,
+        historyWindow: 8,
+        graphAutoScale: 0.085, // meters full-scale (+/-)
+        sampleClock: 0,
+        state: {
+          zs: 0,  // body displacement
+          zsd: 0, // body velocity
+          zu: 0,  // wheel displacement
+          zud: 0  // wheel velocity
+        },
+        params: {
+          spring: defaults.spring,
+          damping: defaults.damping,
+          rebound: defaults.rebound
+        },
+        phase: 'neutral',
+        roadMode: defaults.roadMode,
+        history: []
+      };
+
+      // Pre-compute a zero-offset for the rough road profile so the simulation starts calmly at t = 0.
+      const roughOffset = roughProfileRaw(0);
+
+      function clamp(value, min, max) {
+        return Math.max(min, Math.min(max, value));
+      }
+
+      function lerp(a, b, t) {
+        return a + (b - a) * t;
+      }
+
+      function formatNumber(value, digits = 0) {
+        return Number(value).toLocaleString(undefined, {
+          minimumFractionDigits: digits,
+          maximumFractionDigits: digits
+        });
+      }
+
+      function mm(valueMeters) {
+        return valueMeters * 1000;
+      }
+
+      function updateSliderLabels() {
+        ui.springValue.textContent = `${formatNumber(Number(ui.spring.value), 0)} N/m`;
+        ui.dampingValue.textContent = `${formatNumber(Number(ui.damping.value), 0)} N·s/m`;
+        ui.reboundValue.textContent = `${formatNumber(Number(ui.rebound.value), 0)} N·s/m`;
+      }
+
+      function applyPreset(name) {
+        const preset = presets[name] || presets.sport;
+        ui.preset.value = name in presets ? name : 'sport';
+        ui.spring.value = preset.spring;
+        ui.damping.value = preset.damping;
+        ui.rebound.value = preset.rebound;
+        syncParamsFromUI();
+      }
+
+      function resetSimulation(restoreDefaults = true) {
+        if (restoreDefaults) {
+          ui.roadMode.value = defaults.roadMode;
+          applyPreset(defaults.preset);
+          setTheme(defaults.theme);
+          sim.running = defaults.running;
+        }
+        sim.time = 0;
+        sim.accumulator = 0;
+        sim.sampleClock = 0;
+        sim.phase = 'neutral';
+        sim.state.zs = 0;
+        sim.state.zsd = 0;
+        sim.state.zu = 0;
+        sim.state.zud = 0;
+        sim.history.length = 0;
+        ui.playPause.textContent = sim.running ? 'Pause' : 'Play';
+        ui.playPause.setAttribute('aria-pressed', String(sim.running));
+        syncParamsFromUI();
+        seedHistory();
+      }
+
+      function seedHistory() {
+        const samples = 64;
+        for (let i = samples; i >= 0; i -= 1) {
+          const t = sim.time - (i / samples) * sim.historyWindow;
+          sim.history.push({
+            t,
+            body: 0,
+            wheel: 0,
+            road: roadAtTime(t)
+          });
+        }
+      }
+
+      function setTheme(theme) {
+        const nextTheme = theme === 'light' ? 'light' : 'dark';
+        document.body.setAttribute('data-theme', nextTheme);
+        ui.themeToggle.textContent = nextTheme === 'dark' ? 'Light Theme' : 'Dark Theme';
+      }
+
+      function syncParamsFromUI() {
+        sim.params.spring = clamp(Number(ui.spring.value), 12000, 70000);
+        sim.params.damping = clamp(Number(ui.damping.value), 800, 6000);
+        sim.params.rebound = clamp(Number(ui.rebound.value), 1200, 9000);
+        sim.roadMode = ui.roadMode.value;
+        updateSliderLabels();
+      }
+
+      function springDamperForce(zs, zsd, zu, zud) {
+        const x = zs - zu;
+        const xDot = zsd - zud;
+        const damping = xDot < 0 ? sim.params.damping : sim.params.rebound;
+        return sim.params.spring * x + damping * xDot;
+      }
+
+      function roughProfileRaw(p) {
+        // Spatial rough-road function (meters).
+        const long = 0.010 * Math.sin((2 * Math.PI * p) / 5.2 + 0.5);
+        const mid1 = 0.008 * Math.sin((2 * Math.PI * p) / 2.15 + 1.35);
+        const mid2 = 0.005 * Math.sin((2 * Math.PI * p) / 0.92 + 2.1);
+        const fine = 0.0035 * Math.sin((2 * Math.PI * p) / 0.48 + 0.7);
+        const chatter = 0.0023 * Math.sin((2 * Math.PI * p) / 0.22 + 2.9);
+        return long + mid1 + mid2 + fine + chatter;
+      }
+
+      function roadProfileAt(distance, time) {
+        const p = distance - physical.roadSpeed * time;
+
+        if (sim.roadMode === 'sine') {
+          const amplitude = 0.026;
+          const wavelength = 7.2;
+          return amplitude * Math.sin((2 * Math.PI * p) / wavelength);
+        }
+
+        if (sim.roadMode === 'bump') {
+          const repeatDistance = 18;
+          const bumpWidth = 1.8;
+          const amplitude = 0.055;
+          const shifted = ((p - 5.0) % repeatDistance + repeatDistance) % repeatDistance;
+
+          if (shifted <= bumpWidth) {
+            // Raised cosine bump: smooth entry and exit, max at midpoint.
+            return amplitude * 0.5 * (1 - Math.cos((2 * Math.PI * shifted) / bumpWidth));
+          }
+          return 0;
+        }
+
+        // Rough road mode.
+        return roughProfileRaw(p) - roughOffset;
+      }
+
+      function roadAtTime(time) {
+        return roadProfileAt(0, time);
+      }
+
+      function derivatives(state, time) {
+        const zr = roadAtTime(time);
+        const Fs = springDamperForce(state.zs, state.zsd, state.zu, state.zud);
+        const Ft = physical.tireStiffness * (state.zu - zr);
+
+        return {
+          dzs: state.zsd,
+          dzsd: (-Fs) / physical.sprungMass,
+          dzu: state.zud,
+          dzud: (Fs - Ft) / physical.unsprungMass
+        };
+      }
+
+      function addState(a, b, scale) {
+        return {
+          zs: a.zs + b.dzs * scale,
+          zsd: a.zsd + b.dzsd * scale,
+          zu: a.zu + b.dzu * scale,
+          zud: a.zud + b.dzud * scale
+        };
+      }
+
+      function rk4Step(state, time, dt) {
+        const k1 = derivatives(state, time);
+        const k2 = derivatives(addState(state, k1, dt * 0.5), time + dt * 0.5);
+        const k3 = derivatives(addState(state, k2, dt * 0.5), time + dt * 0.5);
+        const k4 = derivatives(addState(state, k3, dt), time + dt);
+
+        return {
+          zs: state.zs + (dt / 6) * (k1.dzs + 2 * k2.dzs + 2 * k3.dzs + k4.dzs),
+          zsd: state.zsd + (dt / 6) * (k1.dzsd + 2 * k2.dzsd + 2 * k3.dzsd + k4.dzsd),
+          zu: state.zu + (dt / 6) * (k1.dzu + 2 * k2.dzu + 2 * k3.dzu + k4.dzu),
+          zud: state.zud + (dt / 6) * (k1.dzud + 2 * k2.dzud + 2 * k3.dzud + k4.dzud)
+        };
+      }
+
+      function sanitizeState() {
+        const s = sim.state;
+        const values = [s.zs, s.zsd, s.zu, s.zud];
+        const valid = values.every(Number.isFinite) &&
+          Math.abs(s.zs) < 1 && Math.abs(s.zu) < 1 && Math.abs(s.zsd) < 20 && Math.abs(s.zud) < 20;
+
+        if (!valid) {
+          sim.state.zs = 0;
+          sim.state.zsd = 0;
+          sim.state.zu = 0;
+          sim.state.zud = 0;
+        }
+      }
+
+      function pushHistorySample() {
+        sim.history.push({
+          t: sim.time,
+          body: sim.state.zs,
+          wheel: sim.state.zu,
+          road: roadAtTime(sim.time)
+        });
+
+        while (sim.history.length && sim.time - sim.history[0].t > sim.historyWindow) {
+          sim.history.shift();
+        }
+      }
+
+      function stepSimulation(dt) {
+        sim.state = rk4Step(sim.state, sim.time, dt);
+        sim.time += dt;
+        sanitizeState();
+
+        const relativeVelocity = sim.state.zs - sim.state.zu;
+        const damperVelocity = sim.state.zsd - sim.state.zud;
+        if (Math.abs(damperVelocity) < 0.001) {
+          sim.phase = 'neutral';
+        } else {
+          sim.phase = damperVelocity < 0 ? 'compression' : 'rebound';
+        }
+
+        sim.sampleClock += dt;
+        if (sim.sampleClock >= 1 / 60) {
+          sim.sampleClock = 0;
+          pushHistorySample();
+        }
+      }
+
+      function resizeCanvas(canvas, context) {
+        const dpr = Math.max(1, window.devicePixelRatio || 1);
+        const rect = canvas.getBoundingClientRect();
+        const width = Math.max(320, Math.round(rect.width * dpr));
+        const height = Math.max(180, Math.round(rect.height * dpr));
+
+        if (canvas.width !== width || canvas.height !== height) {
+          canvas.width = width;
+          canvas.height = height;
+          context.setTransform(1, 0, 0, 1, 0, 0);
+          context.scale(dpr, dpr);
+        }
+      }
+
+      function getThemeColor(name) {
+        return getComputedStyle(document.body).getPropertyValue(name).trim();
+      }
+
+      function drawRoundedRect(ctx, x, y, w, h, r) {
+        const radius = Math.min(r, w * 0.5, h * 0.5);
+        ctx.beginPath();
+        ctx.moveTo(x + radius, y);
+        ctx.arcTo(x + w, y, x + w, y + h, radius);
+        ctx.arcTo(x + w, y + h, x, y + h, radius);
+        ctx.arcTo(x, y + h, x, y, radius);
+        ctx.arcTo(x, y, x + w, y, radius);
+        ctx.closePath();
+      }
+
+      function drawGround(ctx, geom) {
+        const roadStroke = getThemeColor('--road');
+        const roadFill = getThemeColor('--road-fill');
+        const lineColor = getThemeColor('--line');
+        const base = geom.roadBase;
+        const step = 5;
+
+        ctx.save();
+        ctx.beginPath();
+        ctx.moveTo(0, geom.h);
+        ctx.lineTo(0, base);
+
+        for (let x = 0; x <= geom.w + step; x += step) {
+          const s = (x - geom.wheelX) * geom.pxToMeters;
+          const y = base - roadProfileAt(s, sim.time) * geom.scaleY;
+          ctx.lineTo(x, y);
+        }
+
+        ctx.lineTo(geom.w, geom.h);
+        ctx.closePath();
+        ctx.fillStyle = roadFill;
+        ctx.fill();
+
+        ctx.beginPath();
+        for (let x = 0; x <= geom.w + step; x += step) {
+          const s = (x - geom.wheelX) * geom.pxToMeters;
+          const y = base - roadProfileAt(s, sim.time) * geom.scaleY;
+          if (x === 0) ctx.moveTo(x, y);
+          else ctx.lineTo(x, y);
+        }
+        ctx.lineWidth = 3;
+        ctx.strokeStyle = roadStroke;
+        ctx.stroke();
+
+        // Light surface markers.
+        ctx.lineWidth = 1;
+        ctx.strokeStyle = lineColor;
+        ctx.setLineDash([6, 8]);
+        for (let i = 0; i < 5; i += 1) {
+          const markerX = ((sim.time * 110 + i * 160) % (geom.w + 160)) - 80;
+          ctx.beginPath();
+          ctx.moveTo(markerX, base + 10);
+          ctx.lineTo(markerX + 34, base + 10);
+          ctx.stroke();
+        }
+        ctx.restore();
+      }
+
+      function drawWheel(ctx, cx, cy, radius) {
+        const tire = getThemeColor('--tire');
+        const rim = getThemeColor('--rim');
+        const arm = getThemeColor('--arm');
+        const accent = getThemeColor('--accent');
+
+        ctx.save();
+
+        // Tire.
+        ctx.beginPath();
+        ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+        const tireGradient = ctx.createRadialGradient(cx - radius * 0.2, cy - radius * 0.3, radius * 0.1, cx, cy, radius);
+        tireGradient.addColorStop(0, 'rgba(255,255,255,0.08)');
+        tireGradient.addColorStop(1, tire);
+        ctx.fillStyle = tireGradient;
+        ctx.fill();
+
+        // Tread ring.
+        ctx.beginPath();
+        ctx.arc(cx, cy, radius - 6, 0, Math.PI * 2);
+        ctx.lineWidth = 10;
+        ctx.strokeStyle = 'rgba(255,255,255,0.05)';
+        ctx.stroke();
+
+        // Rim.
+        ctx.beginPath();
+        ctx.arc(cx, cy, radius * 0.58, 0, Math.PI * 2);
+        const rimGradient = ctx.createRadialGradient(cx - 10, cy - 12, radius * 0.1, cx, cy, radius * 0.58);
+        rimGradient.addColorStop(0, rim);
+        rimGradient.addColorStop(1, 'rgba(175, 187, 214, 0.75)');
+        ctx.fillStyle = rimGradient;
+        ctx.fill();
+
+        // Wheel spokes.
+        ctx.translate(cx, cy);
+        ctx.rotate(-sim.time * 2.4);
+        for (let i = 0; i < 6; i += 1) {
+          ctx.rotate(Math.PI / 3);
+          ctx.beginPath();
+          ctx.moveTo(-5, -6);
+          ctx.lineTo(radius * 0.44, -10);
+          ctx.lineTo(radius * 0.34, 10);
+          ctx.lineTo(-5, 6);
+          ctx.closePath();
+          ctx.fillStyle = 'rgba(99, 112, 145, 0.72)';
+          ctx.fill();
+        }
+        ctx.rotate(sim.time * 2.4);
+
+        // Hub.
+        ctx.beginPath();
+        ctx.arc(0, 0, radius * 0.14, 0, Math.PI * 2);
+        ctx.fillStyle = accent;
+        ctx.fill();
+        ctx.lineWidth = 3;
+        ctx.strokeStyle = arm;
+        ctx.stroke();
+
+        ctx.restore();
+      }
+
+      function drawLink(ctx, a, b, width) {
+        ctx.save();
+        ctx.beginPath();
+        ctx.moveTo(a.x, a.y);
+        ctx.lineTo(b.x, b.y);
+        ctx.lineWidth = width;
+        ctx.strokeStyle = getThemeColor('--arm');
+        ctx.lineCap = 'round';
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.arc(a.x, a.y, width * 0.65, 0, Math.PI * 2);
+        ctx.arc(b.x, b.y, width * 0.65, 0, Math.PI * 2);
+        ctx.fillStyle = getThemeColor('--panel-2');
+        ctx.fill();
+        ctx.lineWidth = 2;
+        ctx.strokeStyle = getThemeColor('--arm');
+        ctx.stroke();
+        ctx.restore();
+      }
+
+      function drawSpring(ctx, top, bottom, coils = 8) {
+        const dx = bottom.x - top.x;
+        const dy = bottom.y - top.y;
+        const length = Math.max(20, Math.hypot(dx, dy));
+        const angle = Math.atan2(dy, dx);
+        const pad = 12;
+        const bodyLength = Math.max(10, length - pad * 2);
+        const amplitude = clamp(length * 0.08, 9, 18);
+
+        ctx.save();
+        ctx.translate(top.x, top.y);
+        ctx.rotate(angle);
+
+        // Mounts.
+        ctx.lineWidth = 3;
+        ctx.strokeStyle = getThemeColor('--spring');
+        ctx.beginPath();
+        ctx.moveTo(0, 0);
+        ctx.lineTo(pad, 0);
+        ctx.moveTo(length - pad, 0);
+        ctx.lineTo(length, 0);
+        ctx.stroke();
+
+        // Coil.
+        ctx.beginPath();
+        ctx.moveTo(pad, 0);
+        for (let i = 1; i <= coils * 2; i += 1) {
+          const x = pad + (bodyLength * i) / (coils * 2);
+          const y = i % 2 === 0 ? -amplitude : amplitude;
+          ctx.lineTo(x, y);
+        }
+        ctx.lineTo(length - pad, 0);
+        ctx.lineWidth = 4;
+        ctx.strokeStyle = getThemeColor('--spring');
+        ctx.lineJoin = 'round';
+        ctx.lineCap = 'round';
+        ctx.stroke();
+
+        ctx.restore();
+      }
+
+      function drawDamper(ctx, top, bottom) {
+        const dx = bottom.x - top.x;
+        const dy = bottom.y - top.y;
+        const length = Math.max(18, Math.hypot(dx, dy));
+        const angle = Math.atan2(dy, dx);
+        const bodyLen = Math.min(44, length * 0.44);
+        const rodStart = bodyLen + 8;
+
+        ctx.save();
+        ctx.translate(top.x, top.y);
+        ctx.rotate(angle);
+
+        // Top mount.
+        ctx.beginPath();
+        ctx.arc(0, 0, 5.4, 0, Math.PI * 2);
+        ctx.fillStyle = getThemeColor('--damper');
+        ctx.fill();
+
+        // Damper body.
+        drawRoundedRect(ctx, 8, -10, bodyLen, 20, 9);
+        ctx.fillStyle = 'rgba(255, 182, 107, 0.22)';
+        ctx.fill();
+        ctx.lineWidth = 2;
+        ctx.strokeStyle = getThemeColor('--damper');
+        ctx.stroke();
+
+        // Rod.
+        ctx.beginPath();
+        ctx.moveTo(rodStart, 0);
+        ctx.lineTo(length - 8, 0);
+        ctx.lineWidth = 5;
+        ctx.strokeStyle = getThemeColor('--damper');
+        ctx.lineCap = 'round';
+        ctx.stroke();
+
+        // Bottom mount.
+        ctx.beginPath();
+        ctx.arc(length, 0, 5.4, 0, Math.PI * 2);
+        ctx.fillStyle = getThemeColor('--damper');
+        ctx.fill();
+
+        ctx.restore();
+      }
+
+      function drawBody(ctx, x, y, w, h) {
+        const c1 = getThemeColor('--body');
+        const c2 = getThemeColor('--body-2');
+        const border = getThemeColor('--line');
+        const shadow = ctx.createLinearGradient(x, y, x, y + h);
+        shadow.addColorStop(0, c2);
+        shadow.addColorStop(1, c1);
+
+        ctx.save();
+
+        drawRoundedRect(ctx, x, y, w, h, 24);
+        ctx.fillStyle = shadow;
+        ctx.fill();
+        ctx.lineWidth = 2;
+        ctx.strokeStyle = border;
+        ctx.stroke();
+
+        // Stylized upper body contour.
+        ctx.beginPath();
+        ctx.moveTo(x + 36, y + 18);
+        ctx.bezierCurveTo(x + w * 0.36, y - 18, x + w * 0.72, y - 8, x + w - 40, y + 20);
+        ctx.lineWidth = 5;
+        ctx.strokeStyle = 'rgba(255,255,255,0.30)';
+        ctx.stroke();
+
+        // Wheel arch hint.
+        ctx.beginPath();
+        ctx.arc(x + w - 108, y + h + 6, 82, Math.PI, Math.PI * 1.98, false);
+        ctx.lineWidth = 7;
+        ctx.strokeStyle = 'rgba(255,255,255,0.20)';
+        ctx.stroke();
+
+        ctx.font = '700 16px Inter, sans-serif';
+        ctx.fillStyle = 'rgba(255,255,255,0.82)';
+        ctx.fillText('Sprung mass / chassis', x + 22, y + h * 0.56);
+
+        ctx.restore();
+      }
+
+      function drawTravelGuide(ctx, geom, bodyY, wheelY, travel) {
+        const x = geom.w - 60;
+        const top = geom.bodyBase - 26;
+        const bottom = geom.wheelBase + 26;
+
+        ctx.save();
+        ctx.strokeStyle = getThemeColor('--line');
+        ctx.fillStyle = getThemeColor('--muted');
+        ctx.lineWidth = 1.5;
+
+        ctx.beginPath();
+        ctx.moveTo(x, top);
+        ctx.lineTo(x, bottom);
+        ctx.stroke();
+
+        const mmStep = 10;
+        const totalMm = 120;
+        for (let i = -totalMm; i <= totalMm; i += mmStep) {
+          const y = geom.wheelBase - (i / 1000) * geom.scaleY;
+          const tick = i % 20 === 0 ? 10 : 6;
+          ctx.beginPath();
+          ctx.moveTo(x - tick, y);
+          ctx.lineTo(x + tick, y);
+          ctx.stroke();
+        }
+
+        // Marker for body and wheel.
+        const bodyColor = getThemeColor('--graph-body');
+        const wheelColor = getThemeColor('--graph-wheel');
+
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.moveTo(x - 16, bodyY);
+        ctx.lineTo(x + 16, bodyY);
+        ctx.strokeStyle = bodyColor;
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.moveTo(x - 16, wheelY);
+        ctx.lineTo(x + 16, wheelY);
+        ctx.strokeStyle = wheelColor;
+        ctx.stroke();
+
+        // Bracket for current suspension travel.
+        const a = Math.min(bodyY, wheelY);
+        const b = Math.max(bodyY, wheelY);
+        ctx.strokeStyle = getThemeColor('--accent');
+        ctx.beginPath();
+        ctx.moveTo(x + 22, a);
+        ctx.lineTo(x + 34, a);
+        ctx.lineTo(x + 34, b);
+        ctx.lineTo(x + 22, b);
+        ctx.stroke();
+
+        ctx.font = '700 12px Inter, sans-serif';
+        ctx.fillStyle = getThemeColor('--muted');
+        ctx.fillText('Travel', x - 18, top - 14);
+
+        ctx.fillStyle = getThemeColor('--accent');
+        ctx.fillText(`${formatNumber(mm(travel), 1)} mm`, x - 2, (a + b) * 0.5 + 4);
+
+        ctx.restore();
+      }
+
+      function drawScene() {
+        resizeCanvas(sceneCanvas, sceneCtx);
+
+        const rect = sceneCanvas.getBoundingClientRect();
+        const w = rect.width;
+        const h = rect.height;
+
+        sceneCtx.clearRect(0, 0, w, h);
+
+        const gridColor = getThemeColor('--grid');
+        sceneCtx.save();
+        sceneCtx.strokeStyle = gridColor;
+        sceneCtx.lineWidth = 1;
+        for (let x = 0; x <= w; x += 48) {
+          sceneCtx.beginPath();
+          sceneCtx.moveTo(x, 0);
+          sceneCtx.lineTo(x, h);
+          sceneCtx.stroke();
+        }
+        for (let y = 0; y <= h; y += 48) {
+          sceneCtx.beginPath();
+          sceneCtx.moveTo(0, y);
+          sceneCtx.lineTo(w, y);
+          sceneCtx.stroke();
+        }
+        sceneCtx.restore();
+
+        const geom = {
+          w,
+          h,
+          roadBase: h - 92,
+          wheelX: Math.min(w * 0.67, w - 170),
+          wheelRadius: 58,
+          wheelBase: h - 92 - 58 - 2,
+          bodyBase: Math.max(126, h * 0.29),
+          scaleY: 900,       // px per meter
+          pxToMeters: 0.024  // visible road width scaling
+        };
+
+        const zs = sim.state.zs;
+        const zu = sim.state.zu;
+        const zr = roadAtTime(sim.time);
+        const bodyY = geom.bodyBase - zs * geom.scaleY;
+        const wheelY = geom.wheelBase - zu * geom.scaleY;
+
+        drawGround(sceneCtx, geom);
+
+        // Chassis / body block.
+        drawBody(sceneCtx, Math.max(140, w * 0.14), bodyY - 68, Math.min(500, w * 0.5), 92);
+
+        // Control-arm hardpoints.
+        const lowerInnerFront = { x: Math.max(270, w * 0.29), y: bodyY + 40 };
+        const lowerInnerRear  = { x: Math.max(330, w * 0.35), y: bodyY + 35 };
+        const upperInnerFront = { x: Math.max(330, w * 0.34), y: bodyY - 10 };
+        const upperInnerRear  = { x: Math.max(392, w * 0.40), y: bodyY - 18 };
+
+        const lowerOuter = { x: geom.wheelX - 36, y: wheelY + 18 };
+        const upperOuter = { x: geom.wheelX - 42, y: wheelY - 60 };
+        const knuckleTop = { x: geom.wheelX - 6, y: wheelY - 68 };
+        const knuckleBottom = { x: geom.wheelX - 6, y: wheelY + 32 };
+
+        // Suspension structure.
+        drawLink(sceneCtx, lowerInnerFront, lowerOuter, 7);
+        drawLink(sceneCtx, lowerInnerRear, lowerOuter, 7);
+        drawLink(sceneCtx, upperInnerFront, upperOuter, 6);
+        drawLink(sceneCtx, upperInnerRear, upperOuter, 6);
+        drawLink(sceneCtx, knuckleTop, knuckleBottom, 9);
+
+        // Spring and damper mounts.
+        const springTop = { x: upperInnerRear.x + 72, y: bodyY - 6 };
+        const springBottom = {
+          x: lerp(lowerInnerRear.x, lowerOuter.x, 0.78) + 20,
+          y: lerp(lowerInnerRear.y, lowerOuter.y, 0.78) - 12
+        };
+
+        const damperTop = { x: upperInnerFront.x + 68, y: bodyY + 2 };
+        const damperBottom = {
+          x: lerp(lowerInnerFront.x, lowerOuter.x, 0.63) + 8,
+          y: lerp(lowerInnerFront.y, lowerOuter.y, 0.63) - 6
+        };
+
+        drawSpring(sceneCtx, springTop, springBottom, 8);
+        drawDamper(sceneCtx, damperTop, damperBottom);
+
+        // Guide lines to equilibrium.
+        sceneCtx.save();
+        sceneCtx.setLineDash([8, 8]);
+        sceneCtx.strokeStyle = getThemeColor('--line');
+        sceneCtx.lineWidth = 1.5;
+        sceneCtx.beginPath();
+        sceneCtx.moveTo(0, geom.bodyBase);
+        sceneCtx.lineTo(w, geom.bodyBase);
+        sceneCtx.moveTo(0, geom.wheelBase);
+        sceneCtx.lineTo(w, geom.wheelBase);
+        sceneCtx.stroke();
+        sceneCtx.restore();
+
+        // Labels.
+        sceneCtx.save();
+        sceneCtx.fillStyle = getThemeColor('--muted');
+        sceneCtx.font = '700 12px Inter, sans-serif';
+        sceneCtx.fillText('Body equilibrium', 20, geom.bodyBase - 8);
+        sceneCtx.fillText('Wheel equilibrium', 20, geom.wheelBase - 8);
+        sceneCtx.fillText('Wheel / tire / unsprung mass', geom.wheelX - 104, wheelY + geom.wheelRadius + 38);
+        sceneCtx.fillText('Spring', springTop.x + 26, (springTop.y + springBottom.y) * 0.5 - 10);
+        sceneCtx.fillText('Damper', damperTop.x + 34, (damperTop.y + damperBottom.y) * 0.5 + 10);
+        sceneCtx.restore();
+
+        // Wheel drawn after the structure so it sits in front.
+        drawWheel(sceneCtx, geom.wheelX, wheelY, geom.wheelRadius);
+
+        // Contact patch hint.
+        sceneCtx.save();
+        sceneCtx.strokeStyle = getThemeColor('--accent-3');
+        sceneCtx.lineWidth = 2;
+        sceneCtx.setLineDash([4, 6]);
+        const contactY = geom.roadBase - zr * geom.scaleY;
+        sceneCtx.beginPath();
+        sceneCtx.moveTo(geom.wheelX, wheelY + geom.wheelRadius);
+        sceneCtx.lineTo(geom.wheelX, contactY);
+        sceneCtx.stroke();
+        sceneCtx.restore();
+
+        drawTravelGuide(sceneCtx, geom, bodyY, wheelY, sim.state.zu - sim.state.zs);
+      }
+
+      function drawGraph() {
+        resizeCanvas(graphCanvas, graphCtx);
+
+        const rect = graphCanvas.getBoundingClientRect();
+        const w = rect.width;
+        const h = rect.height;
+        const pad = { left: 52, right: 18, top: 18, bottom: 30 };
+        const innerW = w - pad.left - pad.right;
+        const innerH = h - pad.top - pad.bottom;
+        const centerY = pad.top + innerH / 2;
+
+        graphCtx.clearRect(0, 0, w, h);
+
+        const grid = getThemeColor('--grid');
+        const text = getThemeColor('--muted');
+        const line = getThemeColor('--line');
+        const bodyColor = getThemeColor('--graph-body');
+        const wheelColor = getThemeColor('--graph-wheel');
+        const roadColor = getThemeColor('--graph-road');
+
+        // Grid.
+        graphCtx.save();
+        graphCtx.strokeStyle = grid;
+        graphCtx.lineWidth = 1;
+        for (let i = 0; i <= 8; i += 1) {
+          const x = pad.left + (innerW * i) / 8;
+          graphCtx.beginPath();
+          graphCtx.moveTo(x, pad.top);
+          graphCtx.lineTo(x, pad.top + innerH);
+          graphCtx.stroke();
+        }
+        for (let i = 0; i <= 6; i += 1) {
+          const y = pad.top + (innerH * i) / 6;
+          graphCtx.beginPath();
+          graphCtx.moveTo(pad.left, y);
+          graphCtx.lineTo(pad.left + innerW, y);
+          graphCtx.stroke();
+        }
+        graphCtx.restore();
+
+        graphCtx.strokeStyle = line;
+        graphCtx.lineWidth = 1.5;
+        graphCtx.beginPath();
+        graphCtx.moveTo(pad.left, centerY);
+        graphCtx.lineTo(pad.left + innerW, centerY);
+        graphCtx.stroke();
+
+        const history = sim.history;
+        if (!history.length) return;
+
+        const tMin = sim.time - sim.historyWindow;
+        const tMax = sim.time;
+
+        // Autoscale to keep motion readable but stable.
+        let peak = 0.02;
+        for (const sample of history) {
+          peak = Math.max(peak, Math.abs(sample.body), Math.abs(sample.wheel), Math.abs(sample.road));
+        }
+        sim.graphAutoScale = lerp(sim.graphAutoScale, clamp(peak * 1.25, 0.035, 0.12), 0.07);
+        const scale = sim.graphAutoScale;
+
+        function xForTime(t) {
+          return pad.left + ((t - tMin) / (tMax - tMin || 1)) * innerW;
+        }
+
+        function yForValue(v) {
+          return centerY - (v / scale) * (innerH * 0.44);
+        }
+
+        function drawSeries(key, color, width) {
+          graphCtx.save();
+          graphCtx.beginPath();
+          let moved = false;
+          for (const sample of history) {
+            const x = xForTime(sample.t);
+            const y = yForValue(sample[key]);
+            if (!moved) {
+              graphCtx.moveTo(x, y);
+              moved = true;
+            } else {
+              graphCtx.lineTo(x, y);
+            }
+          }
+          graphCtx.strokeStyle = color;
+          graphCtx.lineWidth = width;
+          graphCtx.lineJoin = 'round';
+          graphCtx.lineCap = 'round';
+          graphCtx.stroke();
+          graphCtx.restore();
+        }
+
+        drawSeries('road', roadColor, 2.2);
+        drawSeries('wheel', wheelColor, 2.6);
+        drawSeries('body', bodyColor, 2.8);
+
+        // Labels and scale.
+        graphCtx.save();
+        graphCtx.fillStyle = text;
+        graphCtx.font = '12px Inter, sans-serif';
+        graphCtx.fillText('+', 18, pad.top + 10);
+        graphCtx.fillText('0', 18, centerY + 4);
+        graphCtx.fillText('-', 18, pad.top + innerH - 2);
+        graphCtx.fillText(`±${formatNumber(mm(scale), 0)} mm`, pad.left + 8, pad.top + 14);
+        graphCtx.fillText(`${sim.historyWindow.toFixed(1)} s`, w - 44, h - 10);
+        graphCtx.fillText('Displacement', 12, 14);
+        graphCtx.restore();
+      }
+
+      function updateStatus() {
+        const body = sim.state.zs;
+        const wheel = sim.state.zu;
+        const road = roadAtTime(sim.time);
+        const travel = sim.state.zu - sim.state.zs;
+
+        ui.bodyDisp.textContent = `${formatNumber(mm(body), 1)} mm`;
+        ui.wheelDisp.textContent = `${formatNumber(mm(wheel), 1)} mm`;
+        ui.travelDisp.textContent = `${formatNumber(mm(travel), 1)} mm`;
+        ui.velocityDisp.textContent = `${formatNumber(mm(sim.state.zsd), 1)} mm/s`;
+        ui.roadDisp.textContent = `${formatNumber(mm(road), 1)} mm`;
+
+        if (sim.phase === 'compression') {
+          ui.phaseDisp.textContent = 'Compression';
+          ui.phaseMetric.classList.add('phase-compression');
+          ui.phaseMetric.classList.remove('phase-rebound');
+        } else if (sim.phase === 'rebound') {
+          ui.phaseDisp.textContent = 'Rebound';
+          ui.phaseMetric.classList.add('phase-rebound');
+          ui.phaseMetric.classList.remove('phase-compression');
+        } else {
+          ui.phaseDisp.textContent = 'Neutral';
+          ui.phaseMetric.classList.remove('phase-compression', 'phase-rebound');
+        }
+      }
+
+      function render() {
+        drawScene();
+        drawGraph();
+        updateStatus();
+      }
+
+      function animate(timestamp) {
+        if (!sim.lastTimestamp) sim.lastTimestamp = timestamp;
+        let frameDt = (timestamp - sim.lastTimestamp) / 1000;
+        sim.lastTimestamp = timestamp;
+        frameDt = clamp(frameDt, 0, 0.05);
+
+        if (sim.running) {
+          sim.accumulator += frameDt;
+          while (sim.accumulator >= sim.fixedDt) {
+            stepSimulation(sim.fixedDt);
+            sim.accumulator -= sim.fixedDt;
+          }
+        }
+
+        render();
+        window.requestAnimationFrame(animate);
+      }
+
+      function bindEvents() {
+        [ui.spring, ui.damping, ui.rebound].forEach((input) => {
+          input.addEventListener('input', () => {
+            syncParamsFromUI();
+          });
+        });
+
+        ui.roadMode.addEventListener('change', () => {
+          syncParamsFromUI();
+        });
+
+        ui.preset.addEventListener('change', () => {
+          applyPreset(ui.preset.value);
+        });
+
+        ui.playPause.addEventListener('click', () => {
+          sim.running = !sim.running;
+          ui.playPause.textContent = sim.running ? 'Pause' : 'Play';
+          ui.playPause.setAttribute('aria-pressed', String(sim.running));
+        });
+
+        ui.reset.addEventListener('click', () => {
+          resetSimulation(true);
+        });
+
+        ui.themeToggle.addEventListener('click', () => {
+          const current = document.body.getAttribute('data-theme') || 'dark';
+          setTheme(current === 'dark' ? 'light' : 'dark');
+        });
+
+        ui.centerView.addEventListener('click', () => {
+          sim.graphAutoScale = 0.085;
+        });
+
+        window.addEventListener('resize', render);
+      }
+
+      function init() {
+        setTheme(defaults.theme);
+        updateSliderLabels();
+        bindEvents();
+        resetSimulation(true);
+        render();
+        window.requestAnimationFrame(animate);
+      }
+
+      init();
+    })();
+  </script>
+</body>
+</html>
