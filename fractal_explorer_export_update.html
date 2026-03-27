@@ -1,0 +1,1913 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Mandelbrot + Julia Fractal Explorer</title>
+  <style>
+    :root {
+      --bg: #0b0f16;
+      --bg-elev: #121925;
+      --bg-elev-2: #182233;
+      --border: rgba(255,255,255,0.08);
+      --border-strong: rgba(255,255,255,0.16);
+      --text: #eef4ff;
+      --text-muted: #9fb0c9;
+      --accent: #7ab7ff;
+      --accent-2: #94ffd7;
+      --danger: #ff8f8f;
+      --shadow: 0 20px 50px rgba(0,0,0,0.4);
+      --radius: 18px;
+      --radius-sm: 12px;
+      --font: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    * { box-sizing: border-box; }
+    html, body { height: 100%; }
+    body {
+      margin: 0;
+      font-family: var(--font);
+      color: var(--text);
+      background:
+        radial-gradient(circle at top left, rgba(122,183,255,0.16), transparent 30%),
+        radial-gradient(circle at top right, rgba(148,255,215,0.12), transparent 28%),
+        linear-gradient(180deg, #091018 0%, #0b1018 28%, #091019 100%);
+      overflow: hidden;
+    }
+
+    .app {
+      display: grid;
+      grid-template-columns: minmax(520px, 1fr) 360px;
+      grid-template-rows: auto 1fr auto;
+      gap: 14px;
+      height: 100%;
+      padding: 14px;
+    }
+
+    .topbar,
+    .statusbar,
+    .workspace,
+    .sidebar {
+      border: 1px solid var(--border);
+      background: rgba(14, 20, 31, 0.78);
+      backdrop-filter: blur(12px);
+      box-shadow: var(--shadow);
+    }
+
+    .topbar,
+    .statusbar {
+      grid-column: 1 / -1;
+      border-radius: var(--radius);
+      padding: 14px 18px;
+    }
+
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 18px;
+    }
+
+    .title-wrap {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+      min-width: 0;
+    }
+
+    .title {
+      margin: 0;
+      font-size: 1.28rem;
+      letter-spacing: 0.02em;
+      font-weight: 700;
+    }
+
+    .subtitle {
+      color: var(--text-muted);
+      font-size: 0.92rem;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .toolbar {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+
+    .workspace {
+      border-radius: var(--radius);
+      padding: 12px;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      min-height: 0;
+      overflow: hidden;
+    }
+
+    .view-card {
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+      min-height: 0;
+      border-radius: var(--radius-sm);
+      background: linear-gradient(180deg, rgba(255,255,255,0.028), rgba(255,255,255,0.01));
+      border: 1px solid var(--border);
+      overflow: hidden;
+    }
+
+    .view-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 12px 14px;
+      border-bottom: 1px solid var(--border);
+      gap: 12px;
+    }
+
+    .view-title {
+      font-weight: 700;
+      letter-spacing: 0.02em;
+      font-size: 0.96rem;
+    }
+
+    .view-meta {
+      color: var(--text-muted);
+      font-size: 0.83rem;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .canvas-wrap {
+      position: relative;
+      flex: 1;
+      min-height: 0;
+      background: #05070b;
+      cursor: crosshair;
+      touch-action: none;
+      user-select: none;
+    }
+
+    .canvas-wrap.grabbing { cursor: grabbing; }
+    .canvas-wrap canvas {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+
+    .canvas-wrap .hint {
+      position: absolute;
+      left: 12px;
+      bottom: 12px;
+      font-size: 0.78rem;
+      color: rgba(255,255,255,0.72);
+      background: rgba(0,0,0,0.28);
+      border: 1px solid rgba(255,255,255,0.08);
+      padding: 6px 8px;
+      border-radius: 999px;
+      pointer-events: none;
+      backdrop-filter: blur(10px);
+    }
+
+    .sidebar {
+      border-radius: var(--radius);
+      padding: 14px;
+      overflow: auto;
+      min-height: 0;
+    }
+
+    .section {
+      margin-bottom: 14px;
+      padding: 12px;
+      border-radius: var(--radius-sm);
+      background: linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.012));
+      border: 1px solid var(--border);
+    }
+
+    .section h2 {
+      margin: 0 0 10px;
+      font-size: 0.95rem;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+    }
+
+    .section p {
+      margin: 0;
+      color: var(--text-muted);
+      font-size: 0.84rem;
+      line-height: 1.45;
+    }
+
+    .row,
+    .grid-2,
+    .grid-3 {
+      display: grid;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .grid-2 { grid-template-columns: 1fr 1fr; }
+    .grid-3 { grid-template-columns: repeat(3, 1fr); }
+
+    .field {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      min-width: 0;
+    }
+
+    .field label,
+    .toggle label {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      font-weight: 600;
+      letter-spacing: 0.02em;
+    }
+
+    input[type="number"],
+    input[type="text"],
+    select,
+    textarea {
+      width: 100%;
+      min-width: 0;
+      border: 1px solid var(--border-strong);
+      background: rgba(7, 11, 18, 0.92);
+      color: var(--text);
+      border-radius: 10px;
+      padding: 10px 11px;
+      font: inherit;
+      outline: none;
+      transition: border-color 0.15s ease, transform 0.15s ease, background 0.15s ease;
+    }
+
+    input[type="number"]:focus,
+    input[type="text"]:focus,
+    select:focus,
+    textarea:focus {
+      border-color: rgba(122,183,255,0.65);
+      background: rgba(9, 14, 22, 0.98);
+    }
+
+    textarea {
+      resize: vertical;
+      min-height: 72px;
+      line-height: 1.35;
+    }
+
+    .button-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    button,
+    .ghost-link {
+      appearance: none;
+      border: 1px solid var(--border-strong);
+      color: var(--text);
+      background: linear-gradient(180deg, rgba(255,255,255,0.08), rgba(255,255,255,0.03));
+      border-radius: 11px;
+      padding: 10px 12px;
+      font: inherit;
+      font-weight: 600;
+      letter-spacing: 0.01em;
+      cursor: pointer;
+      transition: transform 0.12s ease, border-color 0.15s ease, background 0.15s ease;
+    }
+
+    button:hover,
+    .ghost-link:hover {
+      border-color: rgba(122,183,255,0.56);
+      transform: translateY(-1px);
+    }
+
+    button:active,
+    .ghost-link:active { transform: translateY(0); }
+
+    button.primary {
+      border-color: rgba(122,183,255,0.5);
+      background: linear-gradient(180deg, rgba(122,183,255,0.24), rgba(122,183,255,0.1));
+    }
+
+    button.warn {
+      border-color: rgba(255,143,143,0.35);
+      background: linear-gradient(180deg, rgba(255,143,143,0.18), rgba(255,143,143,0.06));
+    }
+
+    .toggle {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-top: 4px;
+    }
+
+    .toggle input[type="checkbox"] {
+      width: 18px;
+      height: 18px;
+      accent-color: var(--accent);
+      cursor: pointer;
+      flex: 0 0 auto;
+    }
+
+    input[type="range"] {
+      width: 100%;
+      accent-color: var(--accent);
+      cursor: pointer;
+    }
+
+    .slider-readout {
+      text-align: right;
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      margin-top: -2px;
+    }
+
+    .codebox {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 0.8rem;
+      background: rgba(6, 10, 16, 0.92);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 10px;
+      color: var(--text);
+      line-height: 1.45;
+      word-break: break-word;
+    }
+
+    .pillbar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 7px;
+      margin-top: 8px;
+    }
+
+    .pill {
+      padding: 7px 10px;
+      border-radius: 999px;
+      border: 1px solid var(--border-strong);
+      background: rgba(255,255,255,0.025);
+      color: var(--text-muted);
+      font-size: 0.78rem;
+      cursor: pointer;
+      transition: border-color 0.15s ease, color 0.15s ease, background 0.15s ease;
+    }
+
+    .pill:hover,
+    .pill.active {
+      border-color: rgba(122,183,255,0.58);
+      color: var(--text);
+      background: rgba(122,183,255,0.08);
+    }
+
+    .bookmark-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-top: 8px;
+      max-height: 172px;
+      overflow: auto;
+    }
+
+    .bookmark-item {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 8px;
+      align-items: center;
+      padding: 9px 10px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      background: rgba(255,255,255,0.02);
+    }
+
+    .bookmark-main {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      min-width: 0;
+    }
+
+    .bookmark-name {
+      font-size: 0.84rem;
+      font-weight: 700;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .bookmark-meta {
+      font-size: 0.76rem;
+      color: var(--text-muted);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    }
+
+    .bookmark-actions {
+      display: flex;
+      gap: 6px;
+    }
+
+    .bookmark-actions button {
+      padding: 7px 9px;
+      font-size: 0.76rem;
+    }
+
+    .statusbar {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 12px;
+      align-items: stretch;
+    }
+
+    .status-card {
+      padding: 10px 12px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      background: rgba(255,255,255,0.02);
+      min-width: 0;
+    }
+
+    .status-label {
+      font-size: 0.74rem;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      margin-bottom: 6px;
+    }
+
+    .status-value {
+      font-size: 0.9rem;
+      font-weight: 700;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .muted {
+      color: var(--text-muted);
+    }
+
+    .small {
+      font-size: 0.78rem;
+    }
+
+    @media (max-width: 1320px) {
+      .app {
+        grid-template-columns: 1fr;
+        grid-template-rows: auto minmax(420px, 1fr) auto auto;
+        overflow: auto;
+        height: auto;
+        min-height: 100%;
+      }
+      body { overflow: auto; }
+      .workspace { min-height: 560px; }
+      .sidebar { max-height: none; }
+    }
+
+    @media (max-width: 900px) {
+      .workspace { grid-template-columns: 1fr; }
+      .statusbar { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+
+    @media (max-width: 640px) {
+      .topbar { flex-direction: column; align-items: stretch; }
+      .toolbar { justify-content: flex-start; }
+      .statusbar { grid-template-columns: 1fr; }
+      .grid-2, .grid-3 { grid-template-columns: 1fr; }
+    }
+  </style>
+<script type="text/javascript" nonce="571d8f2323c54ab99fed696eae8" src="//local.adguard.org?ts=1774626378066&amp;type=content-script&amp;dmn=chatgpt.com&amp;url=https%3A%2F%2Fchatgpt.com%2Fbackend-api%2Festuary%2Fcontent%3Fid%3Dfile_000000009bf8720aaa5c244c12d884ce%26ts%3D492952%26p%3Dfs%26cid%3D1%26sig%3Da726a107e2cb639de9912410971b16f23dd07537d321eb80342bab10f6cae7d7%26v%3D0&amp;app=com.apple.Safari&amp;css=2&amp;js=1&amp;rel=1&amp;rji=1&amp;sbe=1&amp;stealth=1&amp;st-wrtc&amp;st-push&amp;st-loc&amp;st-java&amp;st-dnt"></script><script type="text/javascript" nonce="571d8f2323c54ab99fed696eae8" src="//local.adguard.org?ts=1774626378066&amp;name=AdGuard%20Extra&amp;type=user-script"></script></head>
+<body>
+  <div class="app">
+    <header class="topbar">
+      <div class="title-wrap">
+        <h1 class="title">Mandelbrot + Julia Fractal Explorer</h1>
+        <div class="subtitle">Offline single-file explorer with linked views, progressive rendering, bookmarks, exact coordinates, and PNG export.</div>
+      </div>
+      <div class="toolbar">
+        <button id="btnResetAll" class="primary" type="button">Reset all</button>
+        <button id="btnBack" type="button">Back</button>
+        <button id="btnExport" type="button">Export PNG</button>
+      </div>
+    </header>
+
+    <main class="workspace" aria-label="Fractal rendering workspace">
+      <section class="view-card" aria-labelledby="mandelbrotTitle">
+        <div class="view-header">
+          <div>
+            <div id="mandelbrotTitle" class="view-title">Mandelbrot Set</div>
+            <div class="view-meta" id="mandelbrotMeta">Center 0 + 0i</div>
+          </div>
+          <div class="view-meta" id="mandelbrotRenderMeta">Ready</div>
+        </div>
+        <div class="canvas-wrap" id="mandelbrotWrap">
+          <canvas id="mandelbrotCanvas" aria-label="Mandelbrot view"></canvas>
+          <canvas id="mandelbrotOverlay" aria-hidden="true"></canvas>
+          <div class="hint">Drag to pan · Wheel to zoom · Move over the set to drive Julia</div>
+        </div>
+      </section>
+
+      <section class="view-card" aria-labelledby="juliaTitle">
+        <div class="view-header">
+          <div>
+            <div id="juliaTitle" class="view-title">Julia Set</div>
+            <div class="view-meta" id="juliaMeta">c = -0.8 + 0.156i</div>
+          </div>
+          <div class="view-meta" id="juliaRenderMeta">Ready</div>
+        </div>
+        <div class="canvas-wrap" id="juliaWrap">
+          <canvas id="juliaCanvas" aria-label="Julia view"></canvas>
+          <canvas id="juliaOverlay" aria-hidden="true"></canvas>
+          <div class="hint">Drag to pan · Wheel to zoom · Mandelbrot click toggles pinning for c</div>
+        </div>
+      </section>
+    </main>
+
+    <aside class="sidebar" aria-label="Explorer controls">
+      <section class="section">
+        <h2>View state</h2>
+        <div class="grid-3">
+          <div class="field">
+            <label for="centerX">M center X</label>
+            <input id="centerX" type="number" step="any" />
+          </div>
+          <div class="field">
+            <label for="centerY">M center Y</label>
+            <input id="centerY" type="number" step="any" />
+          </div>
+          <div class="field">
+            <label for="viewWidth">M width</label>
+            <input id="viewWidth" type="number" step="any" min="1e-18" />
+          </div>
+        </div>
+        <div class="grid-2" style="margin-top:10px;">
+          <div class="field">
+            <label for="juliaCX">Julia c real</label>
+            <input id="juliaCX" type="number" step="any" />
+          </div>
+          <div class="field">
+            <label for="juliaCY">Julia c imag</label>
+            <input id="juliaCY" type="number" step="any" />
+          </div>
+        </div>
+        <div class="button-row" style="margin-top:10px;">
+          <button id="btnApplyState" class="primary" type="button">Apply values</button>
+          <button id="btnResetMandelbrot" type="button">Reset Mandelbrot</button>
+          <button id="btnResetJulia" type="button">Reset Julia</button>
+        </div>
+      </section>
+
+      <section class="section">
+        <h2>Rendering</h2>
+        <div class="field">
+          <label for="iterSlider">Max iterations</label>
+          <input id="iterSlider" type="range" min="40" max="2500" step="10" value="420" />
+          <div class="slider-readout" id="iterReadout">420</div>
+        </div>
+        <div class="grid-2" style="margin-top:10px;">
+          <div class="field">
+            <label for="paletteSelect">Palette</label>
+            <select id="paletteSelect">
+              <option value="deepsea">Deep Sea</option>
+              <option value="ember">Ember</option>
+              <option value="aurora">Aurora</option>
+              <option value="icefire">Ice Fire</option>
+              <option value="mono">Mono Glow</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="resolutionSelect">Render scale</label>
+            <select id="resolutionSelect">
+              <option value="1">1.00×</option>
+              <option value="0.85">0.85×</option>
+              <option value="0.7">0.70×</option>
+              <option value="0.55">0.55×</option>
+            </select>
+          </div>
+        </div>
+        <div class="grid-2" style="margin-top:10px;">
+          <div class="field">
+            <label for="previewSelect">Preview step</label>
+            <select id="previewSelect">
+              <option value="4">4 px</option>
+              <option value="3">3 px</option>
+              <option value="2">2 px</option>
+              <option value="1">1 px</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="escapeRadius">Escape radius</label>
+            <input id="escapeRadius" type="number" value="32" min="2" max="1000" step="1" />
+          </div>
+        </div>
+        <div class="toggle">
+          <input id="hoverJulia" type="checkbox" checked />
+          <label for="hoverJulia">Drive Julia continuously from Mandelbrot cursor</label>
+        </div>
+      </section>
+
+      <section class="section">
+        <h2>Export render</h2>
+        <div class="grid-3">
+          <div class="field">
+            <label for="exportTarget">Target</label>
+            <select id="exportTarget">
+              <option value="mandelbrot">Mandelbrot</option>
+              <option value="julia">Julia</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="exportWidth">Width</label>
+            <input id="exportWidth" type="number" min="64" max="12000" step="1" value="2400" />
+          </div>
+          <div class="field">
+            <label for="exportHeight">Height</label>
+            <input id="exportHeight" type="number" min="64" max="12000" step="1" value="1350" />
+          </div>
+        </div>
+        <div class="toggle" style="margin-top:10px;">
+          <input id="exportLockAspect" type="checkbox" checked />
+          <label for="exportLockAspect">Keep the chosen view's current frame aspect</label>
+        </div>
+        <div class="button-row" style="margin-top:10px;">
+          <button id="btnExportRender" class="primary" type="button">Render selected PNG</button>
+        </div>
+        <p style="margin-top:10px;">
+          The export is rendered fresh from the current viewport of the chosen view. If you turn aspect lock off,
+          any aspect mismatch is padded so the current frame still stays exact.
+        </p>
+      </section>
+
+      <section class="section">
+        <h2>Built-in landmarks</h2>
+        <div id="builtinPills" class="pillbar"></div>
+      </section>
+
+      <section class="section">
+        <h2>Saved bookmarks</h2>
+        <div class="field">
+          <label for="bookmarkName">Name</label>
+          <input id="bookmarkName" type="text" placeholder="e.g. Seahorse valley detail" maxlength="80" />
+        </div>
+        <div class="button-row" style="margin-top:10px;">
+          <button id="btnSaveBookmark" class="primary" type="button">Save current Mandelbrot view</button>
+          <button id="btnClearBookmarks" class="warn" type="button">Clear saved</button>
+        </div>
+        <div id="bookmarkList" class="bookmark-list" aria-live="polite"></div>
+      </section>
+
+      <section class="section">
+        <h2>Current state code</h2>
+        <div id="stateCode" class="codebox" aria-live="polite">Preparing…</div>
+        <div class="button-row" style="margin-top:10px;">
+          <button id="btnCopyState" type="button">Copy state</button>
+          <button id="btnLoadState" type="button">Load from text</button>
+        </div>
+      </section>
+
+      <section class="section">
+        <h2>Usage</h2>
+        <p>
+          The left panel controls the Julia parameter <span class="muted">c</span>. Hover for live updates, or click once to pin and click again to unpin.
+          Both panels support pointer-centered zoom and drag panning. The explorer progressively refines each frame rather than blocking the UI.
+        </p>
+      </section>
+    </aside>
+
+    <footer class="statusbar" aria-label="Status information">
+      <div class="status-card">
+        <div class="status-label">Cursor / c</div>
+        <div class="status-value" id="statusCursor">—</div>
+      </div>
+      <div class="status-card">
+        <div class="status-label">Mandelbrot width</div>
+        <div class="status-value" id="statusWidth">—</div>
+      </div>
+      <div class="status-card">
+        <div class="status-label">Zoom factor</div>
+        <div class="status-value" id="statusZoom">—</div>
+      </div>
+      <div class="status-card">
+        <div class="status-label">Iterations</div>
+        <div class="status-value" id="statusIter">—</div>
+      </div>
+      <div class="status-card">
+        <div class="status-label">Render timing</div>
+        <div class="status-value" id="statusTiming">—</div>
+      </div>
+    </footer>
+  </div>
+
+  <script>
+    (() => {
+      'use strict';
+
+      const STORAGE_KEY = 'fractalExplorerBookmarksV1';
+      const DPR_CAP = 2;
+      const HOME_MANDELBROT = { centerX: -0.5, centerY: 0.0, width: 3.2 };
+      const HOME_JULIA = { centerX: 0.0, centerY: 0.0, width: 3.0 };
+      const HOME_C = { x: -0.8, y: 0.156 };
+
+      const BUILTIN_BOOKMARKS = [
+        { name: 'Home', centerX: -0.5, centerY: 0.0, width: 3.2 },
+        { name: 'Seahorse Valley', centerX: -0.7436438870371587, centerY: 0.131825904205312, width: 0.0024 },
+        { name: 'Elephant Valley', centerX: 0.282, centerY: 0.008, width: 0.13 },
+        { name: 'Triple Spiral', centerX: -0.088, centerY: 0.654, width: 0.035 },
+        { name: 'Mini Mandelbrot', centerX: -1.7687788335, centerY: 0.001738996, width: 0.0018 },
+        { name: 'Needle Filament', centerX: -0.743643135, centerY: 0.131825963, width: 0.00006 },
+      ];
+
+      const PALETTES = {
+        deepsea: [
+          [0.0, [3, 8, 18]],
+          [0.18, [14, 38, 78]],
+          [0.42, [18, 112, 180]],
+          [0.68, [98, 208, 255]],
+          [0.88, [225, 248, 255]],
+          [1.0, [255, 200, 120]],
+        ],
+        ember: [
+          [0.0, [5, 3, 8]],
+          [0.18, [58, 16, 16]],
+          [0.36, [148, 34, 12]],
+          [0.62, [255, 105, 26]],
+          [0.82, [255, 198, 85]],
+          [1.0, [255, 248, 225]],
+        ],
+        aurora: [
+          [0.0, [6, 7, 16]],
+          [0.22, [32, 26, 94]],
+          [0.44, [24, 106, 130]],
+          [0.68, [37, 194, 145]],
+          [0.86, [154, 255, 204]],
+          [1.0, [246, 255, 248]],
+        ],
+        icefire: [
+          [0.0, [4, 7, 20]],
+          [0.24, [25, 82, 146]],
+          [0.46, [116, 226, 255]],
+          [0.62, [245, 245, 255]],
+          [0.8, [255, 151, 109]],
+          [1.0, [117, 16, 20]],
+        ],
+        mono: [
+          [0.0, [2, 4, 10]],
+          [0.3, [30, 36, 54]],
+          [0.58, [105, 126, 175]],
+          [0.82, [201, 224, 255]],
+          [1.0, [255, 255, 255]],
+        ]
+      };
+
+      const els = {
+        mandelbrotCanvas: document.getElementById('mandelbrotCanvas'),
+        mandelbrotOverlay: document.getElementById('mandelbrotOverlay'),
+        juliaCanvas: document.getElementById('juliaCanvas'),
+        juliaOverlay: document.getElementById('juliaOverlay'),
+        mandelbrotWrap: document.getElementById('mandelbrotWrap'),
+        juliaWrap: document.getElementById('juliaWrap'),
+        mandelbrotMeta: document.getElementById('mandelbrotMeta'),
+        juliaMeta: document.getElementById('juliaMeta'),
+        mandelbrotRenderMeta: document.getElementById('mandelbrotRenderMeta'),
+        juliaRenderMeta: document.getElementById('juliaRenderMeta'),
+        centerX: document.getElementById('centerX'),
+        centerY: document.getElementById('centerY'),
+        viewWidth: document.getElementById('viewWidth'),
+        juliaCX: document.getElementById('juliaCX'),
+        juliaCY: document.getElementById('juliaCY'),
+        btnApplyState: document.getElementById('btnApplyState'),
+        btnResetMandelbrot: document.getElementById('btnResetMandelbrot'),
+        btnResetJulia: document.getElementById('btnResetJulia'),
+        btnResetAll: document.getElementById('btnResetAll'),
+        btnBack: document.getElementById('btnBack'),
+        btnExport: document.getElementById('btnExport'),
+        exportTarget: document.getElementById('exportTarget'),
+        exportWidth: document.getElementById('exportWidth'),
+        exportHeight: document.getElementById('exportHeight'),
+        exportLockAspect: document.getElementById('exportLockAspect'),
+        btnExportRender: document.getElementById('btnExportRender'),
+        btnSaveBookmark: document.getElementById('btnSaveBookmark'),
+        btnClearBookmarks: document.getElementById('btnClearBookmarks'),
+        bookmarkName: document.getElementById('bookmarkName'),
+        bookmarkList: document.getElementById('bookmarkList'),
+        builtinPills: document.getElementById('builtinPills'),
+        iterSlider: document.getElementById('iterSlider'),
+        iterReadout: document.getElementById('iterReadout'),
+        paletteSelect: document.getElementById('paletteSelect'),
+        resolutionSelect: document.getElementById('resolutionSelect'),
+        previewSelect: document.getElementById('previewSelect'),
+        hoverJulia: document.getElementById('hoverJulia'),
+        escapeRadius: document.getElementById('escapeRadius'),
+        statusCursor: document.getElementById('statusCursor'),
+        statusWidth: document.getElementById('statusWidth'),
+        statusZoom: document.getElementById('statusZoom'),
+        statusIter: document.getElementById('statusIter'),
+        statusTiming: document.getElementById('statusTiming'),
+        stateCode: document.getElementById('stateCode'),
+        btnCopyState: document.getElementById('btnCopyState'),
+        btnLoadState: document.getElementById('btnLoadState')
+      };
+
+      function clamp(value, min, max) {
+        return Math.min(max, Math.max(min, value));
+      }
+
+      function lerp(a, b, t) {
+        return a + (b - a) * t;
+      }
+
+      function formatSigned(n, digits = 12) {
+        const abs = Math.abs(n);
+        let str;
+        if (abs === 0) {
+          str = '0';
+        } else if (abs >= 100000 || abs < 0.0001) {
+          str = n.toExponential(6);
+        } else {
+          str = n.toFixed(digits).replace(/\.?0+$/, '');
+        }
+        return str;
+      }
+
+      function formatComplex(x, y, digits = 12) {
+        const imagSign = y >= 0 ? '+' : '-';
+        return `${formatSigned(x, digits)} ${imagSign} ${formatSigned(Math.abs(y), digits)}i`;
+      }
+
+      function formatScientific(value) {
+        if (!Number.isFinite(value)) return '—';
+        if (value === 0) return '0';
+        const abs = Math.abs(value);
+        if (abs >= 100000 || abs < 0.001) return value.toExponential(4);
+        return value.toFixed(6).replace(/\.?0+$/, '');
+      }
+
+      function gradientColor(stops, t) {
+        t = clamp(t, 0, 1);
+        for (let i = 0; i < stops.length - 1; i += 1) {
+          const a = stops[i];
+          const b = stops[i + 1];
+          if (t >= a[0] && t <= b[0]) {
+            const lt = (t - a[0]) / (b[0] - a[0] || 1);
+            return [
+              Math.round(lerp(a[1][0], b[1][0], lt)),
+              Math.round(lerp(a[1][1], b[1][1], lt)),
+              Math.round(lerp(a[1][2], b[1][2], lt)),
+            ];
+          }
+        }
+        return stops[stops.length - 1][1].slice();
+      }
+
+      class FractalView {
+        constructor(options) {
+          this.kind = options.kind;
+          this.canvas = options.canvas;
+          this.overlay = options.overlay;
+          this.wrap = options.wrap;
+          this.metaEl = options.metaEl;
+          this.renderMetaEl = options.renderMetaEl;
+          this.renderScale = 1;
+          this.previewStep = 3;
+          this.maxIter = 420;
+          this.escapeRadius = 32;
+          this.paletteName = 'deepsea';
+          this.paletteStops = PALETTES[this.paletteName];
+          this.centerX = options.home.centerX;
+          this.centerY = options.home.centerY;
+          this.width = options.home.width;
+          this.heightComplex = this.width;
+          this.pixelWidth = 0;
+          this.pixelHeight = 0;
+          this.cssWidth = 0;
+          this.cssHeight = 0;
+          this.imageData = null;
+          this.overlayCtx = this.overlay.getContext('2d');
+          this.ctx = this.canvas.getContext('2d', { alpha: false });
+          this.renderToken = 0;
+          this.pendingFullRender = false;
+          this.animFrame = 0;
+          this.previewQueued = false;
+          this.row = 0;
+          this.isRendering = false;
+          this.lastRenderMs = 0;
+          this.needsOverlay = true;
+          this.juliaC = { x: HOME_C.x, y: HOME_C.y };
+          this.drag = null;
+          this.pointerInside = false;
+        }
+
+        setPalette(name) {
+          this.paletteName = name;
+          this.paletteStops = PALETTES[name] || PALETTES.deepsea;
+        }
+
+        setViewport(centerX, centerY, width) {
+          this.centerX = centerX;
+          this.centerY = centerY;
+          this.width = Math.max(width, 1e-18);
+          this.heightComplex = this.width * (this.cssHeight / Math.max(1, this.cssWidth));
+        }
+
+        resize() {
+          const rect = this.wrap.getBoundingClientRect();
+          this.cssWidth = Math.max(1, Math.floor(rect.width));
+          this.cssHeight = Math.max(1, Math.floor(rect.height));
+          const dpr = Math.min(window.devicePixelRatio || 1, DPR_CAP);
+          const scaledW = Math.max(1, Math.floor(this.cssWidth * dpr * this.renderScale));
+          const scaledH = Math.max(1, Math.floor(this.cssHeight * dpr * this.renderScale));
+
+          if (scaledW === this.pixelWidth && scaledH === this.pixelHeight) {
+            this.heightComplex = this.width * (this.cssHeight / Math.max(1, this.cssWidth));
+            this.resizeOverlay(dpr);
+            return;
+          }
+
+          this.pixelWidth = scaledW;
+          this.pixelHeight = scaledH;
+          this.canvas.width = scaledW;
+          this.canvas.height = scaledH;
+          this.canvas.style.width = `${this.cssWidth}px`;
+          this.canvas.style.height = `${this.cssHeight}px`;
+          this.ctx.imageSmoothingEnabled = false;
+          this.imageData = this.ctx.createImageData(this.pixelWidth, this.pixelHeight);
+          this.heightComplex = this.width * (this.cssHeight / Math.max(1, this.cssWidth));
+          this.resizeOverlay(dpr);
+        }
+
+        resizeOverlay(dpr) {
+          const ow = Math.max(1, Math.floor(this.cssWidth * dpr));
+          const oh = Math.max(1, Math.floor(this.cssHeight * dpr));
+          this.overlay.width = ow;
+          this.overlay.height = oh;
+          this.overlay.style.width = `${this.cssWidth}px`;
+          this.overlay.style.height = `${this.cssHeight}px`;
+          this.overlayCtx.setTransform(ow / this.cssWidth, 0, 0, oh / this.cssHeight, 0, 0);
+          this.needsOverlay = true;
+        }
+
+        pixelToComplex(px, py) {
+          const xNorm = px / Math.max(1, this.cssWidth);
+          const yNorm = py / Math.max(1, this.cssHeight);
+          const x = this.centerX + (xNorm - 0.5) * this.width;
+          const y = this.centerY + (yNorm - 0.5) * this.heightComplex;
+          return { x, y };
+        }
+
+        complexToPixel(x, y) {
+          const px = ((x - this.centerX) / this.width + 0.5) * this.cssWidth;
+          const py = ((y - this.centerY) / this.heightComplex + 0.5) * this.cssHeight;
+          return { x: px, y: py };
+        }
+
+        beginRender(previewFirst = true) {
+          this.renderToken += 1;
+          this.row = 0;
+          this.isRendering = true;
+          this.pendingFullRender = true;
+          this.renderStartMs = performance.now();
+          if (previewFirst) this.renderPreview();
+          cancelAnimationFrame(this.animFrame);
+          this.animFrame = requestAnimationFrame(() => this.renderChunk(this.renderToken));
+        }
+
+        renderPreview() {
+          if (!this.imageData) return;
+          const step = Math.max(1, this.previewStep);
+          const data = this.imageData.data;
+          const w = this.pixelWidth;
+          const h = this.pixelHeight;
+          const widthC = this.width;
+          const heightC = this.heightComplex;
+          const offsetX = this.centerX - widthC * 0.5;
+          const offsetY = this.centerY - heightC * 0.5;
+          const dx = widthC / w;
+          const dy = heightC / h;
+          const palette = this.paletteStops;
+
+          for (let py = 0; py < h; py += step) {
+            const cy = offsetY + (py + 0.5) * dy;
+            for (let px = 0; px < w; px += step) {
+              const cx = offsetX + (px + 0.5) * dx;
+              const color = this.computeColor(cx, cy, palette);
+              const fillW = Math.min(step, w - px);
+              const fillH = Math.min(step, h - py);
+              for (let yy = 0; yy < fillH; yy += 1) {
+                let index = ((py + yy) * w + px) * 4;
+                for (let xx = 0; xx < fillW; xx += 1) {
+                  data[index] = color[0];
+                  data[index + 1] = color[1];
+                  data[index + 2] = color[2];
+                  data[index + 3] = 255;
+                  index += 4;
+                }
+              }
+            }
+          }
+
+          this.ctx.putImageData(this.imageData, 0, 0);
+          this.lastRenderMs = performance.now() - this.renderStartMs;
+          this.updateMeta(true);
+          this.drawOverlay();
+        }
+
+        renderChunk(token) {
+          if (token !== this.renderToken || !this.imageData) return;
+          const start = performance.now();
+          const data = this.imageData.data;
+          const w = this.pixelWidth;
+          const h = this.pixelHeight;
+          const widthC = this.width;
+          const heightC = this.heightComplex;
+          const offsetX = this.centerX - widthC * 0.5;
+          const offsetY = this.centerY - heightC * 0.5;
+          const dx = widthC / w;
+          const dy = heightC / h;
+          const palette = this.paletteStops;
+          const rowsPerSlice = Math.max(1, Math.floor(9000 / w));
+
+          let processedRows = 0;
+          while (this.row < h && processedRows < rowsPerSlice && (performance.now() - start) < 14) {
+            const py = this.row;
+            const cy = offsetY + (py + 0.5) * dy;
+            let index = py * w * 4;
+            for (let px = 0; px < w; px += 1) {
+              const cx = offsetX + (px + 0.5) * dx;
+              const color = this.computeColor(cx, cy, palette);
+              data[index] = color[0];
+              data[index + 1] = color[1];
+              data[index + 2] = color[2];
+              data[index + 3] = 255;
+              index += 4;
+            }
+            this.row += 1;
+            processedRows += 1;
+          }
+
+          this.ctx.putImageData(this.imageData, 0, 0);
+          this.lastRenderMs = performance.now() - this.renderStartMs;
+          this.updateMeta(false);
+          this.drawOverlay();
+
+          if (this.row < h && token === this.renderToken) {
+            this.animFrame = requestAnimationFrame(() => this.renderChunk(token));
+          } else {
+            this.isRendering = false;
+            this.pendingFullRender = false;
+            this.updateMeta(false);
+            this.drawOverlay();
+          }
+        }
+
+        computeColor(cx, cy, palette) {
+          let zx;
+          let zy;
+          let cX;
+          let cY;
+
+          if (this.kind === 'mandelbrot') {
+            zx = 0;
+            zy = 0;
+            cX = cx;
+            cY = cy;
+          } else {
+            zx = cx;
+            zy = cy;
+            cX = this.juliaC.x;
+            cY = this.juliaC.y;
+          }
+
+          const radiusSq = this.escapeRadius * this.escapeRadius;
+          let iter = 0;
+          let zx2 = 0;
+          let zy2 = 0;
+
+          while (iter < this.maxIter) {
+            zx2 = zx * zx;
+            zy2 = zy * zy;
+            if (zx2 + zy2 > radiusSq) break;
+            zy = 2 * zx * zy + cY;
+            zx = zx2 - zy2 + cX;
+            iter += 1;
+          }
+
+          if (iter >= this.maxIter) {
+            return [3, 3, 5];
+          }
+
+          const magSq = zx * zx + zy * zy;
+          const smooth = iter + 1 - Math.log(Math.log(Math.sqrt(magSq))) / Math.log(2);
+          const t = 0.5 + 0.5 * Math.sin(0.12 * smooth);
+          return gradientColor(palette, clamp(t, 0, 1));
+        }
+
+        updateMeta(preview) {
+          const label = this.kind === 'mandelbrot'
+            ? `Center ${formatComplex(this.centerX, this.centerY, 10)}`
+            : `Center ${formatComplex(this.centerX, this.centerY, 8)} · c = ${formatComplex(this.juliaC.x, this.juliaC.y, 8)}`;
+          this.metaEl.textContent = label;
+          const progress = this.pixelHeight ? Math.round((this.row / this.pixelHeight) * 100) : 100;
+          if (preview) {
+            this.renderMetaEl.textContent = `Preview ${this.previewStep}px · ${this.lastRenderMs.toFixed(1)} ms`;
+          } else if (this.isRendering) {
+            this.renderMetaEl.textContent = `Refining ${progress}% · ${this.lastRenderMs.toFixed(1)} ms`;
+          } else {
+            this.renderMetaEl.textContent = `Complete · ${this.lastRenderMs.toFixed(1)} ms`;
+          }
+        }
+
+        drawOverlay(marker, extra = {}) {
+          const ctx = this.overlayCtx;
+          ctx.clearRect(0, 0, this.cssWidth, this.cssHeight);
+
+          ctx.lineWidth = 1;
+          ctx.strokeStyle = 'rgba(255,255,255,0.16)';
+          ctx.strokeRect(0.5, 0.5, this.cssWidth - 1, this.cssHeight - 1);
+
+          if (extra.cursor) {
+            const p = this.complexToPixel(extra.cursor.x, extra.cursor.y);
+            ctx.strokeStyle = 'rgba(255,255,255,0.14)';
+            ctx.beginPath();
+            ctx.moveTo(p.x, 0);
+            ctx.lineTo(p.x, this.cssHeight);
+            ctx.moveTo(0, p.y);
+            ctx.lineTo(this.cssWidth, p.y);
+            ctx.stroke();
+          }
+
+          if (marker) {
+            const p = this.complexToPixel(marker.x, marker.y);
+            const onScreen = p.x >= -20 && p.x <= this.cssWidth + 20 && p.y >= -20 && p.y <= this.cssHeight + 20;
+            if (onScreen) {
+              ctx.strokeStyle = marker.pinned ? 'rgba(148,255,215,0.95)' : 'rgba(122,183,255,0.95)';
+              ctx.fillStyle = marker.pinned ? 'rgba(148,255,215,0.2)' : 'rgba(122,183,255,0.18)';
+              ctx.beginPath();
+              ctx.arc(p.x, p.y, marker.pinned ? 9 : 8, 0, Math.PI * 2);
+              ctx.fill();
+              ctx.stroke();
+              ctx.beginPath();
+              ctx.moveTo(p.x - 14, p.y);
+              ctx.lineTo(p.x + 14, p.y);
+              ctx.moveTo(p.x, p.y - 14);
+              ctx.lineTo(p.x, p.y + 14);
+              ctx.stroke();
+            }
+          }
+
+          if (extra.orbit && extra.orbit.length) {
+            ctx.strokeStyle = 'rgba(255, 222, 142, 0.9)';
+            ctx.fillStyle = 'rgba(255, 222, 142, 0.85)';
+            ctx.lineWidth = 1.2;
+            ctx.beginPath();
+            extra.orbit.forEach((pt, i) => {
+              const p = this.complexToPixel(pt.x, pt.y);
+              if (i === 0) ctx.moveTo(p.x, p.y);
+              else ctx.lineTo(p.x, p.y);
+            });
+            ctx.stroke();
+            extra.orbit.forEach((pt, i) => {
+              const p = this.complexToPixel(pt.x, pt.y);
+              const r = i === 0 ? 3.4 : 2.2;
+              ctx.beginPath();
+              ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
+              ctx.fill();
+            });
+          }
+        }
+      }
+
+      const mandelbrot = new FractalView({
+        kind: 'mandelbrot',
+        canvas: els.mandelbrotCanvas,
+        overlay: els.mandelbrotOverlay,
+        wrap: els.mandelbrotWrap,
+        metaEl: els.mandelbrotMeta,
+        renderMetaEl: els.mandelbrotRenderMeta,
+        home: HOME_MANDELBROT,
+      });
+
+      const julia = new FractalView({
+        kind: 'julia',
+        canvas: els.juliaCanvas,
+        overlay: els.juliaOverlay,
+        wrap: els.juliaWrap,
+        metaEl: els.juliaMeta,
+        renderMetaEl: els.juliaRenderMeta,
+        home: HOME_JULIA,
+      });
+
+      const app = {
+        pointerComplex: null,
+        juliaPinned: false,
+        juliaC: { x: HOME_C.x, y: HOME_C.y },
+        history: [],
+        bookmarks: loadBookmarks(),
+        orbit: [],
+        hoverRenderRaf: 0,
+        pendingHoverC: null,
+        exportBusy: false,
+      };
+
+      function loadBookmarks() {
+        try {
+          const raw = localStorage.getItem(STORAGE_KEY);
+          if (!raw) return [];
+          const parsed = JSON.parse(raw);
+          return Array.isArray(parsed) ? parsed : [];
+        } catch (error) {
+          console.warn('Bookmark load failed', error);
+          return [];
+        }
+      }
+
+      function saveBookmarks() {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(app.bookmarks));
+      }
+
+      function getState() {
+        return {
+          m: {
+            centerX: mandelbrot.centerX,
+            centerY: mandelbrot.centerY,
+            width: mandelbrot.width,
+          },
+          j: {
+            centerX: julia.centerX,
+            centerY: julia.centerY,
+            width: julia.width,
+          },
+          c: { x: app.juliaC.x, y: app.juliaC.y },
+          iter: mandelbrot.maxIter,
+          palette: mandelbrot.paletteName,
+          scale: mandelbrot.renderScale,
+          preview: mandelbrot.previewStep,
+          radius: mandelbrot.escapeRadius,
+          pinned: app.juliaPinned,
+          hover: els.hoverJulia.checked,
+        };
+      }
+
+      function pushHistory() {
+        app.history.push(getState());
+        if (app.history.length > 60) app.history.shift();
+      }
+
+      function applyState(state, options = {}) {
+        if (!state || !state.m || !state.j || !state.c) return;
+
+        mandelbrot.setViewport(Number(state.m.centerX), Number(state.m.centerY), Number(state.m.width));
+        julia.setViewport(Number(state.j.centerX), Number(state.j.centerY), Number(state.j.width));
+        app.juliaC.x = Number(state.c.x);
+        app.juliaC.y = Number(state.c.y);
+        app.juliaPinned = Boolean(state.pinned);
+
+        const iter = clamp(Number(state.iter ?? mandelbrot.maxIter), 40, 2500);
+        mandelbrot.maxIter = iter;
+        julia.maxIter = iter;
+        els.iterSlider.value = String(iter);
+        els.iterReadout.textContent = String(iter);
+
+        const paletteName = state.palette && PALETTES[state.palette] ? state.palette : mandelbrot.paletteName;
+        mandelbrot.setPalette(paletteName);
+        julia.setPalette(paletteName);
+        els.paletteSelect.value = paletteName;
+
+        const scale = clamp(Number(state.scale ?? mandelbrot.renderScale), 0.55, 1);
+        mandelbrot.renderScale = scale;
+        julia.renderScale = scale;
+        els.resolutionSelect.value = String(scale);
+
+        const preview = clamp(Number(state.preview ?? mandelbrot.previewStep), 1, 8);
+        mandelbrot.previewStep = preview;
+        julia.previewStep = preview;
+        els.previewSelect.value = String(preview);
+
+        const radius = clamp(Number(state.radius ?? mandelbrot.escapeRadius), 2, 1000);
+        mandelbrot.escapeRadius = radius;
+        julia.escapeRadius = radius;
+        els.escapeRadius.value = String(radius);
+
+        if (typeof state.hover === 'boolean') {
+          els.hoverJulia.checked = state.hover;
+        }
+
+        syncJuliaCToViews();
+        resizeAll();
+        updateUI();
+
+        const previewFirst = options.previewFirst !== false;
+        mandelbrot.beginRender(previewFirst);
+        julia.beginRender(previewFirst);
+      }
+
+      function syncJuliaCToViews() {
+        julia.juliaC.x = app.juliaC.x;
+        julia.juliaC.y = app.juliaC.y;
+        mandelbrot.juliaC.x = app.juliaC.x;
+        mandelbrot.juliaC.y = app.juliaC.y;
+        app.orbit = computeOrbit(app.juliaC.x, app.juliaC.y, 24, mandelbrot.escapeRadius);
+      }
+
+      function computeOrbit(cX, cY, limit, escapeRadius) {
+        const out = [];
+        let zx = 0;
+        let zy = 0;
+        const radiusSq = escapeRadius * escapeRadius;
+        for (let i = 0; i < limit; i += 1) {
+          out.push({ x: zx, y: zy });
+          const zx2 = zx * zx;
+          const zy2 = zy * zy;
+          if (zx2 + zy2 > radiusSq) break;
+          const newZy = 2 * zx * zy + cY;
+          const newZx = zx2 - zy2 + cX;
+          zx = newZx;
+          zy = newZy;
+        }
+        return out;
+      }
+
+      function resizeAll() {
+        mandelbrot.resize();
+        julia.resize();
+      }
+
+      function queueFullRender(previewFirst = true) {
+        syncJuliaCToViews();
+        updateUI();
+        mandelbrot.beginRender(previewFirst);
+        julia.beginRender(previewFirst);
+      }
+
+      function updateUI() {
+        els.centerX.value = mandelbrot.centerX;
+        els.centerY.value = mandelbrot.centerY;
+        els.viewWidth.value = mandelbrot.width;
+        els.juliaCX.value = app.juliaC.x;
+        els.juliaCY.value = app.juliaC.y;
+
+        els.statusCursor.textContent = app.pointerComplex
+          ? formatComplex(app.pointerComplex.x, app.pointerComplex.y, 8)
+          : formatComplex(app.juliaC.x, app.juliaC.y, 8);
+        els.statusWidth.textContent = formatScientific(mandelbrot.width);
+        els.statusZoom.textContent = `${formatScientific(HOME_MANDELBROT.width / mandelbrot.width)}×`;
+        els.statusIter.textContent = `${mandelbrot.maxIter} iterations`;
+        els.statusTiming.textContent = `M ${mandelbrot.lastRenderMs.toFixed(1)} ms · J ${julia.lastRenderMs.toFixed(1)} ms`;
+
+        els.stateCode.textContent = JSON.stringify(getState(), null, 2);
+
+        mandelbrot.drawOverlay({ x: app.juliaC.x, y: app.juliaC.y, pinned: app.juliaPinned }, {
+          cursor: app.pointerComplex,
+          orbit: app.orbit,
+        });
+        julia.drawOverlay(null, { cursor: null });
+
+        refreshBuiltinPills();
+      }
+
+      function refreshBuiltinPills() {
+        const activeIndex = BUILTIN_BOOKMARKS.findIndex((bookmark) => {
+          return Math.abs(bookmark.centerX - mandelbrot.centerX) < bookmark.width * 1e-6 &&
+            Math.abs(bookmark.centerY - mandelbrot.centerY) < bookmark.width * 1e-6 &&
+            Math.abs(bookmark.width - mandelbrot.width) < bookmark.width * 1e-6;
+        });
+        [...els.builtinPills.children].forEach((child, idx) => {
+          child.classList.toggle('active', idx === activeIndex);
+        });
+      }
+
+      function renderBookmarks() {
+        els.bookmarkList.innerHTML = '';
+        if (!app.bookmarks.length) {
+          const empty = document.createElement('div');
+          empty.className = 'bookmark-item';
+          empty.innerHTML = '<div class="bookmark-main"><div class="bookmark-name">No saved bookmarks yet</div><div class="bookmark-meta">Save any Mandelbrot view to reuse it later.</div></div>';
+          els.bookmarkList.appendChild(empty);
+          return;
+        }
+
+        app.bookmarks.forEach((bookmark, index) => {
+          const item = document.createElement('div');
+          item.className = 'bookmark-item';
+
+          const main = document.createElement('div');
+          main.className = 'bookmark-main';
+
+          const name = document.createElement('div');
+          name.className = 'bookmark-name';
+          name.textContent = bookmark.name;
+
+          const meta = document.createElement('div');
+          meta.className = 'bookmark-meta';
+          meta.textContent = `x ${formatScientific(bookmark.centerX)} · y ${formatScientific(bookmark.centerY)} · w ${formatScientific(bookmark.width)}`;
+
+          main.appendChild(name);
+          main.appendChild(meta);
+
+          const actions = document.createElement('div');
+          actions.className = 'bookmark-actions';
+
+          const loadBtn = document.createElement('button');
+          loadBtn.type = 'button';
+          loadBtn.textContent = 'Load';
+          loadBtn.addEventListener('click', () => {
+            pushHistory();
+            mandelbrot.setViewport(bookmark.centerX, bookmark.centerY, bookmark.width);
+            resizeAll();
+            queueFullRender(true);
+          });
+
+          const delBtn = document.createElement('button');
+          delBtn.type = 'button';
+          delBtn.textContent = 'Delete';
+          delBtn.addEventListener('click', () => {
+            app.bookmarks.splice(index, 1);
+            saveBookmarks();
+            renderBookmarks();
+          });
+
+          actions.appendChild(loadBtn);
+          actions.appendChild(delBtn);
+          item.appendChild(main);
+          item.appendChild(actions);
+          els.bookmarkList.appendChild(item);
+        });
+      }
+
+      function getExportView() {
+        return els.exportTarget.value === 'julia' ? julia : mandelbrot;
+      }
+
+      function syncExportResolution(changed = 'width', force = false) {
+        if (!force && !els.exportLockAspect.checked) return;
+        const view = getExportView();
+        const aspect = Math.max(1e-9, view.cssWidth / Math.max(1, view.cssHeight));
+        let width = clamp(Math.round(Number(els.exportWidth.value) || 0), 64, 12000);
+        let height = clamp(Math.round(Number(els.exportHeight.value) || 0), 64, 12000);
+
+        if (changed === 'height') {
+          width = clamp(Math.round(height * aspect), 64, 12000);
+        } else {
+          height = clamp(Math.round(width / aspect), 64, 12000);
+        }
+
+        els.exportWidth.value = String(width);
+        els.exportHeight.value = String(height);
+      }
+
+      function nextFrame() {
+        return new Promise((resolve) => requestAnimationFrame(() => resolve()));
+      }
+
+      async function renderFractalToCanvas(view, outWidth, outHeight) {
+        const out = document.createElement('canvas');
+        out.width = outWidth;
+        out.height = outHeight;
+        const ctx = out.getContext('2d', { alpha: false });
+        ctx.fillStyle = '#03050a';
+        ctx.fillRect(0, 0, outWidth, outHeight);
+
+        const frameAspect = view.width / Math.max(1e-18, view.heightComplex);
+        let drawW = outWidth;
+        let drawH = Math.round(outWidth / frameAspect);
+        let drawX = 0;
+        let drawY = 0;
+
+        if (drawH > outHeight) {
+          drawH = outHeight;
+          drawW = Math.round(outHeight * frameAspect);
+          drawX = Math.floor((outWidth - drawW) * 0.5);
+        } else {
+          drawY = Math.floor((outHeight - drawH) * 0.5);
+        }
+
+        const imageData = ctx.createImageData(drawW, drawH);
+        const data = imageData.data;
+        const widthC = view.width;
+        const heightC = view.heightComplex;
+        const offsetX = view.centerX - widthC * 0.5;
+        const offsetY = view.centerY - heightC * 0.5;
+        const dx = widthC / drawW;
+        const dy = heightC / drawH;
+        const palette = view.paletteStops;
+        const rowsPerYield = Math.max(1, Math.floor(300000 / Math.max(1, drawW)));
+
+        for (let py = 0; py < drawH; py += 1) {
+          const cy = offsetY + (py + 0.5) * dy;
+          let index = py * drawW * 4;
+          for (let px = 0; px < drawW; px += 1) {
+            const cx = offsetX + (px + 0.5) * dx;
+            const color = view.computeColor(cx, cy, palette);
+            data[index] = color[0];
+            data[index + 1] = color[1];
+            data[index + 2] = color[2];
+            data[index + 3] = 255;
+            index += 4;
+          }
+
+          if ((py + 1) % rowsPerYield === 0) {
+            const progress = Math.round(((py + 1) / drawH) * 100);
+            const label = view.kind === 'julia' ? 'Julia' : 'Mandelbrot';
+            els.btnExport.textContent = `Rendering ${progress}%`;
+            els.btnExportRender.textContent = `Rendering ${label} ${progress}%`;
+            await nextFrame();
+          }
+        }
+
+        ctx.putImageData(imageData, drawX, drawY);
+        return out;
+      }
+
+      async function exportPNG() {
+        if (app.exportBusy) return;
+
+        const view = getExportView();
+        const outWidth = clamp(Math.round(Number(els.exportWidth.value) || 0), 64, 12000);
+        const outHeight = clamp(Math.round(Number(els.exportHeight.value) || 0), 64, 12000);
+        els.exportWidth.value = String(outWidth);
+        els.exportHeight.value = String(outHeight);
+
+        const prevTopLabel = els.btnExport.textContent;
+        const prevPanelLabel = els.btnExportRender.textContent;
+        const kindLabel = view.kind === 'julia' ? 'julia' : 'mandelbrot';
+
+        app.exportBusy = true;
+        els.btnExport.disabled = true;
+        els.btnExportRender.disabled = true;
+        els.btnExport.textContent = 'Rendering…';
+        els.btnExportRender.textContent = `Rendering ${kindLabel}…`;
+
+        try {
+          await nextFrame();
+          const out = await renderFractalToCanvas(view, outWidth, outHeight);
+          const url = out.toDataURL('image/png');
+          const link = document.createElement('a');
+          link.href = url;
+          link.download = `fractal-${kindLabel}-${outWidth}x${outHeight}-${Date.now()}.png`;
+          link.click();
+        } finally {
+          app.exportBusy = false;
+          els.btnExport.disabled = false;
+          els.btnExportRender.disabled = false;
+          els.btnExport.textContent = prevTopLabel;
+          els.btnExportRender.textContent = prevPanelLabel;
+        }
+      }
+
+      function roundRect(ctx, x, y, w, h, r) {
+        const rr = Math.min(r, w / 2, h / 2);
+        ctx.beginPath();
+        ctx.moveTo(x + rr, y);
+        ctx.arcTo(x + w, y, x + w, y + h, rr);
+        ctx.arcTo(x + w, y + h, x, y + h, rr);
+        ctx.arcTo(x, y + h, x, y, rr);
+        ctx.arcTo(x, y, x + w, y, rr);
+        ctx.closePath();
+      }
+
+      function bindViewInteractions(view) {
+        let rafDrag = 0;
+        let pendingDrag = null;
+
+        function scheduleHoverJuliaRender() {
+          if (app.hoverRenderRaf) return;
+          app.hoverRenderRaf = requestAnimationFrame(() => {
+            app.hoverRenderRaf = 0;
+            if (!app.pendingHoverC) return;
+            app.juliaC.x = app.pendingHoverC.x;
+            app.juliaC.y = app.pendingHoverC.y;
+            app.pendingHoverC = null;
+            syncJuliaCToViews();
+            julia.beginRender(true);
+            updateUI();
+          });
+        }
+
+        function applyDrag() {
+          rafDrag = 0;
+          if (!pendingDrag) return;
+          view.setViewport(pendingDrag.centerX, pendingDrag.centerY, pendingDrag.width);
+          resizeAll();
+          view.beginRender(true);
+          if (view === mandelbrot) {
+            updateUI();
+          } else {
+            updateUI();
+          }
+          pendingDrag = null;
+        }
+
+        view.wrap.addEventListener('pointerdown', (event) => {
+          view.wrap.setPointerCapture(event.pointerId);
+          view.drag = {
+            pointerId: event.pointerId,
+            startX: event.clientX,
+            startY: event.clientY,
+            centerX: view.centerX,
+            centerY: view.centerY,
+            moved: false,
+          };
+          view.wrap.classList.add('grabbing');
+        });
+
+        view.wrap.addEventListener('pointermove', (event) => {
+          const rect = view.wrap.getBoundingClientRect();
+          const localX = event.clientX - rect.left;
+          const localY = event.clientY - rect.top;
+          view.pointerInside = localX >= 0 && localX <= rect.width && localY >= 0 && localY <= rect.height;
+
+          const complex = view.pixelToComplex(localX, localY);
+          if (view === mandelbrot) {
+            app.pointerComplex = complex;
+            if (!app.juliaPinned && !view.drag && els.hoverJulia.checked && view.pointerInside) {
+              app.pendingHoverC = { x: complex.x, y: complex.y };
+              scheduleHoverJuliaRender();
+            }
+          }
+
+          if (view.drag && view.drag.pointerId === event.pointerId) {
+            const dx = event.clientX - view.drag.startX;
+            const dy = event.clientY - view.drag.startY;
+            if (!view.drag.moved && Math.hypot(dx, dy) > 3) {
+              view.drag.moved = true;
+              if (view === mandelbrot) pushHistory();
+            }
+            pendingDrag = {
+              centerX: view.drag.centerX - (dx / Math.max(1, view.cssWidth)) * view.width,
+              centerY: view.drag.centerY - (dy / Math.max(1, view.cssHeight)) * view.heightComplex,
+              width: view.width,
+            };
+            if (!rafDrag) rafDrag = requestAnimationFrame(applyDrag);
+          }
+
+          updateUI();
+        });
+
+        function releaseDrag(event) {
+          if (view.drag && view.drag.pointerId === event.pointerId) {
+            if (pendingDrag) {
+              view.setViewport(pendingDrag.centerX, pendingDrag.centerY, pendingDrag.width);
+              pendingDrag = null;
+            }
+            if (view.drag.moved) {
+              view.suppressClickUntil = performance.now() + 220;
+            }
+            cancelAnimationFrame(rafDrag);
+            rafDrag = 0;
+            view.beginRender(true);
+            updateUI();
+          }
+          view.drag = null;
+          view.wrap.classList.remove('grabbing');
+        }
+
+        view.wrap.addEventListener('pointerup', releaseDrag);
+        view.wrap.addEventListener('pointercancel', releaseDrag);
+        view.wrap.addEventListener('pointerleave', () => {
+          view.pointerInside = false;
+          if (view === mandelbrot) {
+            app.pointerComplex = null;
+            updateUI();
+          }
+        });
+
+        view.wrap.addEventListener('click', (event) => {
+          if (view !== mandelbrot) return;
+          if (view.suppressClickUntil && performance.now() < view.suppressClickUntil) return;
+          const rect = view.wrap.getBoundingClientRect();
+          const localX = event.clientX - rect.left;
+          const localY = event.clientY - rect.top;
+          const complex = view.pixelToComplex(localX, localY);
+          if (app.juliaPinned && Math.abs(complex.x - app.juliaC.x) < mandelbrot.width * 0.005 && Math.abs(complex.y - app.juliaC.y) < mandelbrot.heightComplex * 0.005) {
+            app.juliaPinned = false;
+          } else {
+            app.juliaPinned = true;
+            app.juliaC.x = complex.x;
+            app.juliaC.y = complex.y;
+          }
+          syncJuliaCToViews();
+          julia.beginRender(true);
+          updateUI();
+        });
+
+        view.wrap.addEventListener('wheel', (event) => {
+          event.preventDefault();
+          if (view === mandelbrot) pushHistory();
+          const rect = view.wrap.getBoundingClientRect();
+          const localX = event.clientX - rect.left;
+          const localY = event.clientY - rect.top;
+          const before = view.pixelToComplex(localX, localY);
+          const zoomFactor = Math.exp(event.deltaY * 0.0011);
+          const newWidth = clamp(view.width * zoomFactor, 1e-18, 12);
+          view.setViewport(view.centerX, view.centerY, newWidth);
+          const after = view.pixelToComplex(localX, localY);
+          view.centerX += before.x - after.x;
+          view.centerY += before.y - after.y;
+          resizeAll();
+          view.beginRender(true);
+          updateUI();
+        }, { passive: false });
+      }
+
+      bindViewInteractions(mandelbrot);
+      bindViewInteractions(julia);
+
+      els.iterSlider.addEventListener('input', () => {
+        const value = Number(els.iterSlider.value);
+        els.iterReadout.textContent = String(value);
+      });
+
+      els.iterSlider.addEventListener('change', () => {
+        const value = Number(els.iterSlider.value);
+        mandelbrot.maxIter = value;
+        julia.maxIter = value;
+        queueFullRender(true);
+      });
+
+      els.paletteSelect.addEventListener('change', () => {
+        mandelbrot.setPalette(els.paletteSelect.value);
+        julia.setPalette(els.paletteSelect.value);
+        queueFullRender(true);
+      });
+
+      els.resolutionSelect.addEventListener('change', () => {
+        const value = Number(els.resolutionSelect.value);
+        mandelbrot.renderScale = value;
+        julia.renderScale = value;
+        resizeAll();
+        queueFullRender(true);
+      });
+
+      els.previewSelect.addEventListener('change', () => {
+        const value = Number(els.previewSelect.value);
+        mandelbrot.previewStep = value;
+        julia.previewStep = value;
+        queueFullRender(true);
+      });
+
+      els.escapeRadius.addEventListener('change', () => {
+        const value = clamp(Number(els.escapeRadius.value) || 32, 2, 1000);
+        mandelbrot.escapeRadius = value;
+        julia.escapeRadius = value;
+        syncJuliaCToViews();
+        queueFullRender(true);
+      });
+
+      els.exportTarget.addEventListener('change', () => syncExportResolution('width'));
+      els.exportLockAspect.addEventListener('change', () => {
+        if (els.exportLockAspect.checked) syncExportResolution('width', true);
+      });
+      els.exportWidth.addEventListener('input', () => syncExportResolution('width'));
+      els.exportHeight.addEventListener('input', () => syncExportResolution('height'));
+      els.exportWidth.addEventListener('change', () => syncExportResolution('width'));
+      els.exportHeight.addEventListener('change', () => syncExportResolution('height'));
+
+      els.hoverJulia.addEventListener('change', updateUI);
+
+      els.btnApplyState.addEventListener('click', () => {
+        pushHistory();
+        mandelbrot.setViewport(Number(els.centerX.value), Number(els.centerY.value), Number(els.viewWidth.value));
+        app.juliaC.x = Number(els.juliaCX.value);
+        app.juliaC.y = Number(els.juliaCY.value);
+        syncJuliaCToViews();
+        resizeAll();
+        queueFullRender(true);
+      });
+
+      els.btnResetMandelbrot.addEventListener('click', () => {
+        pushHistory();
+        mandelbrot.setViewport(HOME_MANDELBROT.centerX, HOME_MANDELBROT.centerY, HOME_MANDELBROT.width);
+        resizeAll();
+        queueFullRender(true);
+      });
+
+      els.btnResetJulia.addEventListener('click', () => {
+        julia.setViewport(HOME_JULIA.centerX, HOME_JULIA.centerY, HOME_JULIA.width);
+        julia.beginRender(true);
+        updateUI();
+      });
+
+      els.btnResetAll.addEventListener('click', () => {
+        pushHistory();
+        app.juliaPinned = false;
+        app.juliaC.x = HOME_C.x;
+        app.juliaC.y = HOME_C.y;
+        applyState({
+          m: HOME_MANDELBROT,
+          j: HOME_JULIA,
+          c: HOME_C,
+          iter: Number(els.iterSlider.value),
+          palette: els.paletteSelect.value,
+          scale: Number(els.resolutionSelect.value),
+          preview: Number(els.previewSelect.value),
+          radius: Number(els.escapeRadius.value),
+          pinned: false,
+          hover: true,
+        });
+      });
+
+      els.btnBack.addEventListener('click', () => {
+        const previous = app.history.pop();
+        if (!previous) return;
+        applyState(previous);
+      });
+
+      els.btnExport.addEventListener('click', exportPNG);
+      els.btnExportRender.addEventListener('click', exportPNG);
+
+      els.btnSaveBookmark.addEventListener('click', () => {
+        const name = els.bookmarkName.value.trim() || `View ${app.bookmarks.length + 1}`;
+        app.bookmarks.unshift({
+          name,
+          centerX: mandelbrot.centerX,
+          centerY: mandelbrot.centerY,
+          width: mandelbrot.width,
+        });
+        app.bookmarks = app.bookmarks.slice(0, 24);
+        saveBookmarks();
+        els.bookmarkName.value = '';
+        renderBookmarks();
+      });
+
+      els.btnClearBookmarks.addEventListener('click', () => {
+        app.bookmarks = [];
+        saveBookmarks();
+        renderBookmarks();
+      });
+
+      els.btnCopyState.addEventListener('click', async () => {
+        const text = JSON.stringify(getState(), null, 2);
+        try {
+          await navigator.clipboard.writeText(text);
+        } catch (error) {
+          console.warn('Clipboard write failed', error);
+        }
+      });
+
+      els.btnLoadState.addEventListener('click', () => {
+        const input = prompt('Paste a state JSON object');
+        if (!input) return;
+        try {
+          const parsed = JSON.parse(input);
+          pushHistory();
+          applyState(parsed);
+        } catch (error) {
+          alert('That state could not be parsed.');
+        }
+      });
+
+      BUILTIN_BOOKMARKS.forEach((bookmark) => {
+        const pill = document.createElement('button');
+        pill.type = 'button';
+        pill.className = 'pill';
+        pill.textContent = bookmark.name;
+        pill.addEventListener('click', () => {
+          pushHistory();
+          mandelbrot.setViewport(bookmark.centerX, bookmark.centerY, bookmark.width);
+          resizeAll();
+          queueFullRender(true);
+        });
+        els.builtinPills.appendChild(pill);
+      });
+
+      let resizeTimer = 0;
+      window.addEventListener('resize', () => {
+        clearTimeout(resizeTimer);
+        resizeTimer = window.setTimeout(() => {
+          resizeAll();
+          queueFullRender(true);
+        }, 80);
+      });
+
+      // Initial boot state
+      els.paletteSelect.value = 'deepsea';
+      els.resolutionSelect.value = '1';
+      els.previewSelect.value = '4';
+      els.iterReadout.textContent = els.iterSlider.value;
+      mandelbrot.setPalette('deepsea');
+      julia.setPalette('deepsea');
+      mandelbrot.maxIter = Number(els.iterSlider.value);
+      julia.maxIter = Number(els.iterSlider.value);
+      mandelbrot.escapeRadius = Number(els.escapeRadius.value);
+      julia.escapeRadius = Number(els.escapeRadius.value);
+      mandelbrot.previewStep = Number(els.previewSelect.value);
+      julia.previewStep = Number(els.previewSelect.value);
+      mandelbrot.renderScale = Number(els.resolutionSelect.value);
+      julia.renderScale = Number(els.resolutionSelect.value);
+      syncJuliaCToViews();
+      resizeAll();
+      syncExportResolution('width', true);
+      renderBookmarks();
+      updateUI();
+      mandelbrot.beginRender(true);
+      julia.beginRender(true);
+    })();
+  </script>
+</body>
+</html>
